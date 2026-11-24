@@ -1,0 +1,99 @@
+Phase 4 offline Chromium component review; no live database or payment calls.
+('website', 390, False, 'PASS')
+('website', 390, True, 'PASS')
+('website', 320, True, 'PASS')
+('website', 768, False, 'PASS')
+('website', 1440, True, 'PASS')
+('booking', 390, False, 'PASS')
+('booking', 390, True, 'PASS')
+('booking', 320, True, 'PASS')
+('booking', 768, False, 'PASS')
+('booking', 1440, True, 'PASS')
+('manage-booking', 390, False, 'PASS')
+('manage-booking', 390, True, 'PASS')
+('manage-booking', 320, True, 'PASS')
+('manage-booking', 768, False, 'PASS')
+('manage-booking', 1440, True, 'PASS')
+('history', 390, False, 'PASS')
+('history', 390, True, 'PASS')
+('history', 320, True, 'PASS')
+('history', 768, False, 'PASS')
+('history', 1440, True, 'PASS')
+('prescription-register', 390, False, 'PASS')
+('prescription-register', 390, True, 'PASS')
+('prescription-register', 320, True, 'PASS')
+('prescription-register', 768, False, 'PASS')
+('prescription-register', 1440, True, 'PASS')
+('cancel-policy', 390, False, 'PASS')
+('cancel-policy', 390, True, 'PASS')
+('cancel-policy', 320, True, 'PASS')
+('cancel-policy', 768, False, 'PASS')
+('cancel-policy', 1440, True, 'PASS')
+30/30 passed.
+68 TS/TSX files; 0 syntax diagnostics.
+TAP version 13
+# (node:2623) ExperimentalWarning: Type Stripping is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: valid checkout signature and strict tampering rejection
+ok 1 - valid checkout signature and strict tampering rejection
+  ---
+  duration_ms: 1.552126
+  type: 'test'
+  ...
+# Subtest: webhook signatures bind raw bytes
+ok 2 - webhook signatures bind raw bytes
+  ---
+  duration_ms: 0.402195
+  type: 'test'
+  ...
+# Subtest: test and real payment key modes cannot be mixed
+ok 3 - test and real payment key modes cannot be mixed
+  ---
+  duration_ms: 0.158689
+  type: 'test'
+  ...
+# Subtest: static guard: payment and refund settlement service-only grants
+ok 4 - static guard: payment and refund settlement service-only grants
+  ---
+  duration_ms: 0.347122
+  type: 'test'
+  ...
+# Subtest: static guard: slot uniqueness, row locking and staff MFA
+ok 5 - static guard: slot uniqueness, row locking and staff MFA
+  ---
+  duration_ms: 0.249726
+  type: 'test'
+  ...
+# Subtest: static guard: webhook bypasses browser CSRF only after signature validation and live API disabled in demo
+ok 6 - static guard: webhook bypasses browser CSRF only after signature validation and live API disabled in demo
+  ---
+  duration_ms: 0.280192
+  type: 'test'
+  ...
+# Subtest: portal-only PWA, no authenticated cache writes
+ok 7 - portal-only PWA, no authenticated cache writes
+  ---
+  duration_ms: 0.953726
+  type: 'test'
+  ...
+# Subtest: PWA network failure returns safe generic fallback, not a stored record
+ok 8 - PWA network failure returns safe generic fallback, not a stored record
+  ---
+  duration_ms: 17.772022
+  type: 'test'
+  ...
+# Subtest: phase 3 service-only document creation, notification and reconciliation
+ok 9 - phase 3 service-only document creation, notification and reconciliation
+  ---
+  duration_ms: 0.416677
+  type: 'test'
+  ...
+1..9
+# tests 9
+# suites 0
+# pass 9
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 154.169887

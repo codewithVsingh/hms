@@ -1,0 +1,60 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalPassThroughEnv": [
+    "HMS_DEMO_MODE",
+    "HMS_PUBLIC_LIVE",
+    "HMS_ALLOW_INDEXING",
+    "NEXT_PUBLIC_*",
+    "HMS_ORGANIZATION_SLUG",
+    "HMS_BRANCH_CODE",
+    "HMS_NOTICE_VERSION",
+    "HMS_NOTICE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "RAZORPAY_*",
+    "HMS_RAZORPAY_MODE",
+    "HMS_ENABLE_REAL_PAYMENTS",
+    "CRON_SECRET",
+    "HMS_RECONCILIATION_ENABLED",
+    "HMS_NOTIFY_*",
+    "RESEND_API_KEY",
+    "HMS_FROM_EMAIL",
+    "TWILIO_*",
+    "WHATSAPP_*",
+    "HMS_WA_*",
+    "HMS_PRIVATE_SCANNER_*",
+    "HMS_CALLBACK_*"
+  ],
+  "tasks": {
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**"
+      ],
+      "env": [
+        "HMS_DEMO_MODE",
+        "HMS_PUBLIC_LIVE",
+        "HMS_ALLOW_INDEXING",
+        "NEXT_PUBLIC_*",
+        "HMS_ORGANIZATION_SLUG",
+        "HMS_BRANCH_CODE",
+        "HMS_NOTICE_VERSION",
+        "HMS_NOTICE_URL",
+        "HMS_RAZORPAY_MODE",
+        "HMS_ENABLE_REAL_PAYMENTS"
+      ]
+    },
+    "typecheck": {
+      "dependsOn": [
+        "^typecheck"
+      ],
+      "outputs": []
+    }
+  }
+}

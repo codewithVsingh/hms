@@ -1,0 +1,66 @@
+TAP version 13
+# (node:8118) ExperimentalWarning: Type Stripping is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: valid checkout signature and strict tampering rejection
+ok 1 - valid checkout signature and strict tampering rejection
+  ---
+  duration_ms: 1.301968
+  type: 'test'
+  ...
+# Subtest: webhook signatures bind raw bytes
+ok 2 - webhook signatures bind raw bytes
+  ---
+  duration_ms: 0.43442
+  type: 'test'
+  ...
+# Subtest: test and real payment key modes cannot be mixed
+ok 3 - test and real payment key modes cannot be mixed
+  ---
+  duration_ms: 0.157822
+  type: 'test'
+  ...
+# Subtest: static guard: payment and refund settlement service-only grants
+ok 4 - static guard: payment and refund settlement service-only grants
+  ---
+  duration_ms: 0.919103
+  type: 'test'
+  ...
+# Subtest: static guard: slot uniqueness, row locking and staff MFA
+ok 5 - static guard: slot uniqueness, row locking and staff MFA
+  ---
+  duration_ms: 1.034584
+  type: 'test'
+  ...
+# Subtest: static guard: webhook bypasses browser CSRF only after signature validation and live API disabled in demo
+ok 6 - static guard: webhook bypasses browser CSRF only after signature validation and live API disabled in demo
+  ---
+  duration_ms: 0.870192
+  type: 'test'
+  ...
+# Subtest: portal-only PWA, no authenticated cache writes
+ok 7 - portal-only PWA, no authenticated cache writes
+  ---
+  duration_ms: 0.402102
+  type: 'test'
+  ...
+# Subtest: PWA network failure returns safe generic fallback, not a stored record
+ok 8 - PWA network failure returns safe generic fallback, not a stored record
+  ---
+  duration_ms: 20.898755
+  type: 'test'
+  ...
+# Subtest: phase 3 service-only document creation, notification and reconciliation
+ok 9 - phase 3 service-only document creation, notification and reconciliation
+  ---
+  duration_ms: 1.338596
+  type: 'test'
+  ...
+1..9
+# tests 9
+# suites 0
+# pass 9
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 140.164935

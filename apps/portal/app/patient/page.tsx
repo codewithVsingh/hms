@@ -1,0 +1,1 @@
+import {PatientRecords} from '../../features/live/extended';import {demoEnabled} from '../../lib/config';export const dynamic='force-dynamic';export default function Page(){return <PatientRecords demo={demoEnabled}/>}
