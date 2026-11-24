@@ -21,6 +21,12 @@ type Appointment = {
   invoiceNumber: string | null;
 };
 type Patient = { id: string; name: string; mrn: string; birthDate: string | null };
+type DuplicateMatch = Patient & {
+  level: 'likely' | 'possible';
+  phoneLast4: string | null;
+  visits: number;
+  lastVisit: string | null;
+};
 type Slot = { id: string; doctor: string; startsAt: string };
 type Team = { display_name: string; active: boolean; roles: string[] };
 type Audit = {
@@ -101,6 +107,10 @@ export function LiveWorkspace({
     [newPhone, setNewPhone] = useState(''),
     [birth, setBirth] = useState(''),
     [consent, setConsent] = useState(false),
+    [gender, setGender] = useState(''),
+    // Possible existing records found before registering (migration 023), and the override reason.
+    [matches, setMatches] = useState<DuplicateMatch[] | null>(null),
+    [override, setOverride] = useState(''),
     [bookingPatient, setBookingPatient] = useState(''),
     [bookingSlot, setBookingSlot] = useState(''),
     [bookConsent, setBookConsent] = useState(false),
@@ -146,7 +156,7 @@ export function LiveWorkspace({
     const t = setTimeout(() => setQuery(search.trim()), 350);
     return () => clearTimeout(t);
   }, [search]);
-  async function run(task: () => Promise<void>, msg: string) {
+  async function run(task: () => Promise<void>, msg: string | (() => string)) {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
@@ -154,7 +164,7 @@ export function LiveWorkspace({
     setSuccess('');
     try {
       await task();
-      setSuccess(msg);
+      setSuccess(typeof msg === 'function' ? msg() : msg);
       await load();
     } catch (e) {
       setError(message(e));
@@ -590,18 +600,39 @@ export function LiveWorkspace({
                     className="surface live-panel stack"
                     onSubmit={(e) => {
                       e.preventDefault();
-                      void run(async () => {
-                        await api('staff/register', {
-                          name: newName,
-                          phone: newPhone || undefined,
-                          birthDate: birth || undefined,
-                          consent,
-                        });
-                        setNewName('');
-                        setNewPhone('');
-                        setBirth('');
-                        setConsent(false);
-                      }, 'Patient registered.');
+                      const details = {
+                        name: newName,
+                        phone: newPhone || undefined,
+                        birthDate: birth || undefined,
+                        gender: gender || undefined,
+                      };
+                      let registered = false;
+                      void run(
+                        async () => {
+                          // Check for look-alikes first; registering anyway needs a recorded reason.
+                          if (matches === null) {
+                            const found = await api<DuplicateMatch[]>('staff/register/check', details);
+                            if (found.length) {
+                              setMatches(found);
+                              return;
+                            }
+                          }
+                          await api('staff/register', {
+                            ...details,
+                            consent,
+                            override: matches?.length ? override.trim() : undefined,
+                          });
+                          registered = true;
+                          setNewName('');
+                          setNewPhone('');
+                          setBirth('');
+                          setGender('');
+                          setConsent(false);
+                          setMatches(null);
+                          setOverride('');
+                        },
+                        () => (registered ? 'Patient registered.' : ''),
+                      );
                     }}
                   >
                     <h2>Register patient</h2>
@@ -615,21 +646,93 @@ export function LiveWorkspace({
                           required
                           maxLength={100}
                           value={newName}
-                          onChange={(e) => setNewName(e.target.value)}
+                          onChange={(e) => {
+                            setNewName(e.target.value);
+                            setMatches(null);
+                          }}
                         />
                       </Field>
                       <Field label="Phone (optional, +91…)">
-                        <input type="tel" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} />
+                        <input
+                          type="tel"
+                          value={newPhone}
+                          onChange={(e) => {
+                            setNewPhone(e.target.value);
+                            setMatches(null);
+                          }}
+                        />
                       </Field>
                       <Field label="Date of birth (optional)">
                         <input
                           type="date"
                           max={localDay()}
                           value={birth}
-                          onChange={(e) => setBirth(e.target.value)}
+                          onChange={(e) => {
+                            setBirth(e.target.value);
+                            setMatches(null);
+                          }}
                         />
                       </Field>
+                      <Field label="Gender (optional)">
+                        <select
+                          value={gender}
+                          onChange={(e) => {
+                            setGender(e.target.value);
+                            setMatches(null);
+                          }}
+                        >
+                          <option value="">Not recorded</option>
+                          <option value="female">Female</option>
+                          <option value="male">Male</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </Field>
                     </div>
+                    {matches && matches.length > 0 && (
+                      <div className="stack" role="group" aria-label="Possible existing records">
+                        <Notice tone="warning">
+                          This patient may already be registered. Check the records below with the patient
+                          before creating a new UHID.
+                        </Notice>
+                        {matches.map((m) => (
+                          <div className="ops-item live-card-head" key={m.id}>
+                            <div>
+                              <strong>
+                                {m.name} · <span className="break-ref">{m.mrn}</span>
+                              </strong>
+                              <p>
+                                {m.level === 'likely' ? 'Likely the same person' : 'Possibly the same person'}{' '}
+                                · DOB {m.birthDate || 'not recorded'} · mobile ending {m.phoneLast4 || '—'} ·{' '}
+                                {m.visits} visit{m.visits === 1 ? '' : 's'}
+                                {m.lastVisit ? `, last ${when(m.lastVisit)}` : ''}
+                              </p>
+                            </div>
+                            <Button
+                              variant="secondary"
+                              onClick={() => {
+                                setSearch(m.mrn);
+                                setMatches(null);
+                                setNewName('');
+                                setNewPhone('');
+                                setBirth('');
+                                setGender('');
+                                setConsent(false);
+                              }}
+                            >
+                              Use this patient
+                            </Button>
+                          </div>
+                        ))}
+                        <Field label="Reason for registering a new patient anyway">
+                          <input
+                            maxLength={300}
+                            placeholder="e.g. Family member sharing the same mobile number"
+                            value={override}
+                            onChange={(e) => setOverride(e.target.value)}
+                          />
+                        </Field>
+                      </div>
+                    )}
                     <label className="check-field">
                       <input
                         type="checkbox"
@@ -638,8 +741,16 @@ export function LiveWorkspace({
                       />{' '}
                       Patient or authorized guardian has acknowledged the registration notice.
                     </label>
-                    <Button type="submit" disabled={busy || !consent || newName.trim().length < 2}>
-                      Register patient
+                    <Button
+                      type="submit"
+                      disabled={
+                        busy ||
+                        !consent ||
+                        newName.trim().length < 2 ||
+                        (!!matches?.length && override.trim().length < 5)
+                      }
+                    >
+                      {matches?.length ? 'Register new patient anyway' : 'Register patient'}
                     </Button>
                   </form>
                 )}

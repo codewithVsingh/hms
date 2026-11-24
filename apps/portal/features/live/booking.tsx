@@ -222,6 +222,7 @@ export function LiveBooking({
     [reset, setReset] = useState(0),
     [consent, setConsent] = useState(false),
     [adult, setAdult] = useState(false),
+    [birthDate, setBirthDate] = useState(''),
     [payment, setPayment] = useState<'online' | 'hospital'>('hospital'),
     [step, setStep] = useState(0),
     [busy, setBusy] = useState(false),
@@ -285,7 +286,18 @@ export function LiveBooking({
   const d = catalog?.doctors.find((d) => d.id === doctor),
     chosen = slots.find((s) => s.id === slot);
   async function reserve() {
-    if (!d || !slot || !name.trim() || !adult || !consent || !verified || !policy || !policyAccepted) return;
+    if (
+      !d ||
+      !slot ||
+      !name.trim() ||
+      !birthDate ||
+      !adult ||
+      !consent ||
+      !verified ||
+      !policy ||
+      !policyAccepted
+    )
+      return;
     await run(async () => {
       if (!request.current) request.current = crypto.randomUUID();
       const booking = await api<BookingRecord>('bookings/create', {
@@ -297,6 +309,7 @@ export function LiveBooking({
         policyVersion: policy.version,
         adult,
         consent,
+        birthDate,
       });
       setRecords([booking]);
       setStep(3);
@@ -304,6 +317,11 @@ export function LiveBooking({
       if (payment === 'online' && booking.status === 'held') await checkout(booking.id, refresh, setError);
     });
   }
+  // Latest date of birth allowed for an adult self-booking (18 years ago, IST). The server re-checks.
+  const [latestAdultBirth] = useState(() => {
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    return `${Number(today.slice(0, 4)) - 18}${today.slice(4)}`;
+  });
   const [maxDate] = useState(() =>
     new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Kolkata',
@@ -528,6 +546,20 @@ export function LiveBooking({
                       onChange={(e) => setName(e.target.value)}
                     />
                   </Field>
+                  <Field
+                    label="Date of birth"
+                    hint="Helps the hospital find your existing record and avoid duplicates."
+                  >
+                    <input
+                      required
+                      type="date"
+                      autoComplete="bday"
+                      min="1900-01-01"
+                      max={latestAdultBirth}
+                      value={birthDate}
+                      onChange={(e) => setBirthDate(e.target.value)}
+                    />
+                  </Field>
                   <label className="check-field">
                     <input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} />{' '}
                     <L
@@ -554,7 +586,14 @@ export function LiveBooking({
                       <L en="Back" />
                     </Button>
                     <Button
-                      disabled={!verified || !adult || !consent || name.trim().length < 2}
+                      disabled={
+                        !verified ||
+                        !adult ||
+                        !consent ||
+                        name.trim().length < 2 ||
+                        !birthDate ||
+                        birthDate > latestAdultBirth
+                      }
                       onClick={() => setStep(2)}
                     >
                       <L en="Continue" />

@@ -84,6 +84,13 @@ export const extendedNav = [
     roles: ['staff', 'admin'],
   },
   {
+    id: 'duplicates',
+    label: 'Duplicate patients',
+    icon: 'users',
+    perms: ['patients.register', 'settings.manage'],
+    roles: ['staff', 'admin'],
+  },
+  {
     id: 'rx-withdrawals',
     label: 'Prescription withdrawals',
     icon: 'file',

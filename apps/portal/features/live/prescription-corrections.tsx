@@ -128,9 +128,14 @@ export function RxCorrections({
     [attest, setAttest] = useState(false),
     [history, setHistory] = useState<HistoryEntry[] | null>(null);
   const t = useTask();
-  // Captured once per mount; the server re-checks the window on submit anyway.
-  const [openedAt] = useState(() => Date.now());
-  const windowOpen = !!rx.amendUntil && new Date(rx.amendUntil).getTime() > openedAt;
+  // The current time is read only in the browser, after mount: rendering it on the server would not
+  // match the browser's first render (hydration mismatch). The server re-checks the window anyway.
+  const [openedAt, setOpenedAt] = useState<number | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client-only clock read
+    setOpenedAt(Date.now());
+  }, []);
+  const windowOpen = openedAt !== null && !!rx.amendUntil && new Date(rx.amendUntil).getTime() > openedAt;
   const canCorrect = rx.status === 'signed' && !!rx.mine && !rx.withdrawalPending;
   const needNote = reason === 'other';
   const reset = () => {
@@ -166,7 +171,7 @@ export function RxCorrections({
           Version history
         </Button>
       </div>
-      {canCorrect && !windowOpen && rx.amendUntil && (
+      {canCorrect && openedAt !== null && !windowOpen && rx.amendUntil && (
         <p className="ops-muted">
           Amendment window closed on {when(rx.amendUntil)}. Write a new prescription for further changes.
         </p>

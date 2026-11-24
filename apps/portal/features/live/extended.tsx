@@ -8,6 +8,7 @@ import type { StaffContext } from '../../lib/server/supabase';
 import type { Role } from '@hms/types';
 import { extendedNav } from '../../lib/extended-nav';
 import { RxCorrections, RxStatusBadges, RxWithdrawals } from './prescription-corrections';
+import { DuplicatePatients } from './duplicate-patients';
 type Item = { medicine: string; dose: string; frequency: string; duration: string; instructions: string };
 type Rx = {
   id: string;
@@ -1705,7 +1706,15 @@ function PatientEdit({ demo }: { demo: boolean }) {
     </Panel>
   );
 }
-export function ExtendedPanel({ section, demo = false }: { section: string; demo?: boolean }) {
+export function ExtendedPanel({
+  section,
+  demo = false,
+  canApproveMerges = false,
+}: {
+  section: string;
+  demo?: boolean;
+  canApproveMerges?: boolean;
+}) {
   switch (section) {
     case 'history':
       return <PatientTimeline demo={demo} />;
@@ -1725,6 +1734,8 @@ export function ExtendedPanel({ section, demo = false }: { section: string; demo
       return <DeskRefunds demo={demo} />;
     case 'rx-withdrawals':
       return <RxWithdrawals demo={demo} />;
+    case 'duplicates':
+      return <DuplicatePatients demo={demo} canApprove={canApproveMerges} />;
     case 'analytics':
       return <Reports demo={demo} />;
     case 'team-management':
@@ -1790,7 +1801,11 @@ export function ExtendedWorkspace({
           <Badge tone="teal">{demo ? 'Demo' : 'MFA verified'}</Badge>
         </header>
         {nav.some((n) => n.id === section) ? (
-          <ExtendedPanel section={section} demo={demo} />
+          <ExtendedPanel
+            section={section}
+            demo={demo}
+            canApproveMerges={demo ? role === 'admin' : !!context?.permissions.includes('settings.manage')}
+          />
         ) : (
           <Notice tone="warning">Access not permitted.</Notice>
         )}

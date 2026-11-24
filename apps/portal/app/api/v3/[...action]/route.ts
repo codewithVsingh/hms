@@ -34,7 +34,15 @@ const errors: Record<string, [number, string]> = {
   ],
   WITHDRAWAL_PENDING: [409, 'A withdrawal request is pending for this prescription.'],
   AMEND_WINDOW_CLOSED: [409, 'The amendment window has closed. Write a new prescription instead.'],
-  SECOND_PERSON_REQUIRED: [409, 'Another doctor or an administrator must confirm this withdrawal.'],
+  SECOND_PERSON_REQUIRED: [409, 'A second person must confirm this. You cannot approve your own request.'],
+  BOTH_HAVE_ACCOUNTS: [
+    409,
+    'Both records have their own online account, so they are treated as two people and cannot be merged.',
+  ],
+  MERGE_PENDING: [409, 'A merge involving one of these patients is already waiting for approval.'],
+  ID_CHECK_REQUIRED: [400, 'Record which identity document you checked before approving the merge.'],
+  UNDO_WINDOW_CLOSED: [409, 'The undo period for this merge has ended.'],
+  UNDO_BLOCKED: [409, 'A later merge involves one of these patients. Undo that merge first.'],
 };
 function fail(e: unknown) {
   if (e instanceof z.ZodError)
@@ -59,6 +67,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ acti
       return out(await rpc(c, 'hms_v4_cancel_quote', { p_id: id.parse(q.get('id')) }));
     if (path === 'prescription/history')
       return out(await rpc(c, 'hms_v6_rx_history', { p_rx: id.parse(q.get('id')) }));
+    if (path === 'patients/duplicates') {
+      const ctx = await staffContext(c);
+      return out(await rpc(c, 'hms_v7_duplicates', { p_org: ctx.organizationId, p_branch: ctx.branchId }));
+    }
+    if (path === 'patients/merges') {
+      const ctx = await staffContext(c);
+      return out(await rpc(c, 'hms_v7_merges', { p_org: ctx.organizationId, p_branch: ctx.branchId }));
+    }
     if (path === 'prescription/withdrawals') {
       const ctx = await staffContext(c);
       return out(
@@ -179,6 +195,50 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
     }
     const ctx = await staffContext(c),
       args = { p_org: ctx.organizationId, p_branch: ctx.branchId };
+    // Duplicate patients and merges (migration 023; rules in docs/BUSINESS_RULES.md section 10).
+    if (path === 'patients/duplicates/check') {
+      const x = z.object({ patientId: id }).parse(b);
+      return out(await rpc(c, 'hms_v7_patient_candidates', { ...args, p_patient: x.patientId }));
+    }
+    if (path === 'patients/duplicates/dismiss') {
+      const x = z.object({ id, note: z.string().trim().min(5).max(300) }).parse(b);
+      return out(await rpc(c, 'hms_v7_flag_dismiss', { p_flag: x.id, p_note: x.note }));
+    }
+    if (path === 'patients/merges') {
+      const x = z.object({ a: id, b: id, note: z.string().max(500).nullable() }).parse(b);
+      return out(await rpc(c, 'hms_v7_merge_propose', { ...args, p_a: x.a, p_b: x.b, p_note: x.note }));
+    }
+    if (path === 'patients/merges/cancel') {
+      const x = z.object({ id }).parse(b);
+      return out(await rpc(c, 'hms_v7_merge_cancel', { p_merge: x.id }));
+    }
+    if (path === 'patients/merges/decide') {
+      const choice = z.enum(['survivor', 'merged']);
+      const x = z
+        .object({
+          id,
+          approve: z.boolean(),
+          idCheck: z
+            .enum(['aadhaar', 'pan', 'passport', 'driving_licence', 'voter_id', 'other_government_id'])
+            .nullable(),
+          choices: z.object({ name: choice, birthDate: choice, gender: choice }).partial().nullable(),
+          note: z.string().max(500).nullable(),
+        })
+        .parse(b);
+      return out(
+        await rpc(c, 'hms_v7_merge_decide', {
+          p_merge: x.id,
+          p_approve: x.approve,
+          p_id_check: x.idCheck,
+          p_choices: x.choices,
+          p_note: x.note,
+        }),
+      );
+    }
+    if (path === 'patients/merges/undo') {
+      const x = z.object({ id, note: z.string().trim().min(5).max(500) }).parse(b);
+      return out(await rpc(c, 'hms_v7_merge_undo', { p_merge: x.id, p_note: x.note }));
+    }
     // Prescription corrections (migration 022; rules in docs/BUSINESS_RULES.md section 7).
     if (path === 'prescription/amend') {
       const item = z.object({

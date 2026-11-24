@@ -35,6 +35,14 @@ const errors: Record<string, [number, string]> = {
   FEE_CHANGED: [409, 'The consultation fee has changed. Reload the booking page and review the new fee.'],
   BOOKING_LIMIT: [429, 'Booking limit reached. Contact reception if you need another visit.'],
   PATIENT_NAME_MISMATCH: [409, 'Use the name associated with your verified account or contact reception.'],
+  ADULT_REQUIRED: [
+    409,
+    'Online booking is for adults booking for themselves. For a minor, please contact reception.',
+  ],
+  POSSIBLE_DUPLICATE: [
+    409,
+    'This patient may already be registered. Review the matches, or register anyway with a reason.',
+  ],
   HOLD_EXPIRED_OR_NOT_PAYABLE: [409, 'This appointment is no longer payable.'],
   ORDER_CREATION_REVIEW: [
     409,
@@ -257,10 +265,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
           policyVersion: z.number().int().min(1),
           adult: z.literal(true),
           consent: z.literal(true),
+          // Required since migration 023: used for adult check and duplicate-patient detection.
+          birthDate: day,
         })
         .parse(b);
       return reply(
-        await rpc(client, 'hms_v4_book_self', {
+        await rpc(client, 'hms_v7_book_self', {
           ...scope(),
           p_slot: input.slotId,
           p_name: input.name,
@@ -269,7 +279,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
           p_notice: notice(),
           p_adult: input.adult,
           p_expected_fee: input.expectedFeePaise,
-          p_policy: input.policyVersion,
+          p_policy_version: input.policyVersion,
+          p_birth: input.birthDate,
         }),
       );
     }
@@ -287,17 +298,43 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
     if (action === 'payments/recover') return reply(await recoverOrder(idstr.parse(b.orderId), user.id));
     const ctx = await staffContext(client);
     const args = { p_org: ctx.organizationId, p_branch: ctx.branchId };
-    if (action === 'staff/register') {
+    const gender = z.enum(['female', 'male', 'other']);
+    // Look-alike check before registering (POST: name and phone stay out of URLs and logs).
+    if (action === 'staff/register/check') {
       const input = z
-        .object({ name, phone: phone.optional(), birthDate: day.optional(), consent: z.literal(true) })
+        .object({ name, phone: phone.optional(), birthDate: day.optional(), gender: gender.optional() })
         .parse(b);
       return reply(
-        await rpc(client, 'hms_staff_register', {
+        await rpc(client, 'hms_v7_duplicate_check', {
           ...args,
           p_name: input.name,
-          p_phone: input.phone ?? null,
           p_birth: input.birthDate ?? null,
+          p_phone: input.phone ?? null,
+          p_gender: input.gender ?? null,
+        }),
+      );
+    }
+    if (action === 'staff/register') {
+      const input = z
+        .object({
+          name,
+          phone: phone.optional(),
+          birthDate: day.optional(),
+          gender: gender.optional(),
+          consent: z.literal(true),
+          // Reason for registering despite possible matches (e.g. family member sharing a phone).
+          override: z.string().trim().min(5).max(300).optional(),
+        })
+        .parse(b);
+      return reply(
+        await rpc(client, 'hms_v7_register', {
+          ...args,
+          p_name: input.name,
+          p_birth: input.birthDate ?? null,
+          p_phone: input.phone ?? null,
+          p_gender: input.gender ?? null,
           p_notice: notice(),
+          p_override: input.override ?? null,
         }),
       );
     }

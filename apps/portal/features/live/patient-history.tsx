@@ -42,6 +42,9 @@ type Timeline = {
   offset: number;
   history: { kind: string; detail: string; recorded_at: string }[];
   visits: Visit[];
+  // Migration 023: UHIDs merged into this record, and whether an unresolved duplicate flag exists.
+  formerUhids?: string[];
+  possibleDuplicate?: boolean;
 };
 type Register = {
   patient: string;
@@ -72,6 +75,8 @@ type Register = {
 };
 const demoDate = '2026-11-24T05:30:00Z';
 const sample: Timeline = {
+  formerUhids: ['PT-000391'],
+  possibleDuplicate: true,
   name: 'Sample Patient',
   mrn: sampleMrn,
   offset: 0,
@@ -327,11 +332,24 @@ export function PatientTimeline({ demo = false }: { demo?: boolean }) {
               <p>
                 <L en="Patient number" /> · {data.mrn}
               </p>
+              {!!data.formerUhids?.length && (
+                <p>
+                  <L en="Also recorded as" hi="इन नंबरों से भी दर्ज" /> · {data.formerUhids.join(', ')}
+                </p>
+              )}
             </div>
             <Badge tone="teal">
               <L en="Care access verified" hi="देखभाल अनुमति सत्यापित" />
             </Badge>
           </div>
+          {data.possibleDuplicate && (
+            <Notice tone="warning">
+              <L
+                en="This patient may have another record. History from that record is not shown here. Ask reception to review it under Duplicate patients."
+                hi="इस रोगी का एक और रिकॉर्ड हो सकता है। उस रिकॉर्ड का इतिहास यहाँ नहीं दिखता। रिसेप्शन से 'डुप्लिकेट रोगी' में जाँच करने को कहें।"
+              />
+            </Notice>
+          )}
           <div className="history-card stack">
             <h3>
               <L en="Allergies & medical history" hi="एलर्जी और चिकित्सा इतिहास" />
