@@ -26,7 +26,7 @@ export async function GET(req:NextRequest,{params}:{params:Promise<{action:strin
  return out({error:'Not found'},404);
  }catch(e){return fail(e)}}
 export async function POST(req:NextRequest,{params}:{params:Promise<{action:string[]}>}){try{if(demoEnabled)return out({error:'Live API disabled in preview'},503);origin(req);const path=(await params).action.join('/'),c=await sessionClient();
- if(path==='auth/recover'){const b=z.object({email:z.string().email().max(254),captchaToken:z.string().min(1).max(4096)}).parse(await req.json());await c.auth.resetPasswordForEmail(b.email,{redirectTo:env('NEXT_PUBLIC_PORTAL_URL')+'/auth/callback?next=/reset-password',captchaToken:b.captchaToken});return out({accepted:true});}
+ if(path==='auth/recover'){const b=z.object({email:z.string().email().max(254),captchaToken:z.string().min(1).max(4096)}).parse(await req.json().catch(()=>null));await c.auth.resetPasswordForEmail(b.email,{redirectTo:env('NEXT_PUBLIC_PORTAL_URL')+'/auth/callback?next=/reset-password',captchaToken:b.captchaToken});return out({accepted:true});}
  const user=await currentUser(c);
  if(path==='documents/upload'){
   const size=Number(req.headers.get('content-length'));if(!size||size>4.3*1024*1024)return out({error:'File too large'},413);
@@ -36,7 +36,7 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{action:stri
   const scanner=new URL(env('HMS_PRIVATE_SCANNER_URL'));if(scanner.protocol!=='https:')throw new Error('CONFIGURATION_REQUIRED');const scan=await fetch(scanner,{method:'POST',headers:{Authorization:'Bearer '+env('HMS_PRIVATE_SCANNER_TOKEN'),'Content-Type':'application/octet-stream'},body:bytes,signal:AbortSignal.timeout(20000)});if(!scan.ok||(await scan.json()).clean!==true)return out({error:'File did not pass security scanning.'},422);
   const storagePath=`${access.org}/${access.patient}/${crypto.randomUUID()}`,service=serviceClient(),bucket=service.storage.from('hms-private-documents');const upload=await bucket.upload(storagePath,bytes,{contentType:file.type,upsert:false,cacheControl:'0'});if(upload.error)throw new Error('UPLOAD_FAILED');try{return out({id:await rpc(service,'hms_v3_document_add',{p_org:access.org,p_branch:access.branch,p_patient:access.patient,p_appointment:appointment,p_actor:access.actor,p_path:storagePath,p_mime:file.type,p_bytes:file.size,p_name:file.name.slice(0,180),p_type:type,p_release:release})});}catch(e){await bucket.remove([storagePath]);throw e;}
  }
- const raw=await req.text();if(raw.length>100000)throw new Error('INVALID_REQUEST');let b;try{b=JSON.parse(raw)}catch{throw new Error('INVALID_REQUEST')}
+ const raw=await req.text();if(raw.length>100000)throw new Error('INVALID_REQUEST');let b;try{b=JSON.parse(raw)}catch{throw new Error('INVALID_REQUEST')}if(!b||typeof b!=='object'||Array.isArray(b))throw new Error('INVALID_REQUEST');
  if(path==='auth/password'){const password=z.string().min(12).max(200).parse(b.password);const {error}=await c.auth.updateUser({password});if(error)throw new Error('INVALID_REQUEST');await c.auth.signOut({scope:'global'});return out({updated:true});}
  if(path==='reschedule'){const x=z.object({id,slotId:id}).parse(b);return out(await rpc(c,'hms_v3_reschedule',{p_id:x.id,p_slot:x.slotId}));}
  if(path==='patient/preferences'){const x=z.object({channel:z.enum(['email','sms','whatsapp']),enabled:z.boolean()}).parse(b);return out(await rpc(c,'hms_v3_preferences',{p_slug:scope().p_slug,p_channel:x.channel,p_enabled:x.enabled}));}
