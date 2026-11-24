@@ -3,10 +3,9 @@
 Running record for the audit and hardening work, so any session can resume without repeating work. Issue details: [GAP_ANALYSIS.md](GAP_ANALYSIS.md). Branch: `feature/hms-audit-security-hardening` (draft PR #1; not merged).
 
 **Resume here:** next up is Phase 3, in this order:
-1. HMS-016 doctor-unavailability workflow
+1. HMS-017 prescription amendments (proposal sent; build once the clinical lead approves)
 2. HMS-018 duplicate patient detection
-3. HMS-017 prescription amendments (needs a clinical decision on the workflow first)
-4. HMS-020 rate limiting
+3. HMS-020 rate limiting
 
 Start a local DB with `supabase/tests/local/run.sh` and add a T-test for each change.
 
@@ -30,6 +29,7 @@ Start a local DB with `supabase/tests/local/run.sh` and add a T-test for each ch
 | HMS-014 | P3 | `apps/portal/app/not-found.tsx` | Mode-aware copy | E2E (existing) | Local |
 | HMS-015 | P3 | `apps/portal/public/sw.js` | Clear all caches on activate | Static PWA tests | Local |
 | HMS-019 | P2 | `supabase/migrations/202611250020_patient_search_audit.sql`, `apps/portal/features/live/workspace.tsx`, `extended.tsx` | Search audited (no search text stored); mobile and booking-reference search; 350 ms debounce instead of a request per keystroke | T12 | Local + CI |
+| HMS-016 | P1 | `supabase/migrations/202611250021_doctor_unavailability.sql`, `apps/portal/app/api/v2/[...action]/route.ts`, `apps/portal/features/live/extended.tsx`, `apps/portal/lib/extended-nav.ts` | Leave recorded despite bookings (blocks new ones at once) with a reason; Affected bookings screen (call, reschedule, or hospital cancel with full refund); online refunds via admin approval/auto; desk refunds screen for billing; patient notified by existing triggers | T13, `tests/unavailability.spec.ts` | Local + CI |
 | HMS-033 | P1 | `docs/BACKUP_AND_RECOVERY.md` | Procedure documented | — | Restore drill pending |
 | Docs | — | `docs/*.md` (this set) | Audit, gap analysis, security, threat model, roles, env, DB, tests, readiness | — | — |
 
@@ -37,7 +37,6 @@ Start a local DB with `supabase/tests/local/run.sh` and add a T-test for each ch
 
 | Issue | Priority | Plan | Dependency / manual configuration |
 |---|---|---|---|
-| HMS-016 | P1 | Migration + staff UI: list bookings affected by leave → reschedule or cancel with full refund (`reason=doctor_unavailable`) → notify | Notification providers for messages |
 | HMS-017 | P1 | `prescription_versions`, amend/void RPCs with reason, audit; UI shows history | Clinical lead approves workflow |
 | HMS-018 | P1 | Duplicate candidates at registration; merge RPC with two-person review, audit; never automatic | Decision on match rules |
 | HMS-020 | P2 | Edge rate limits (hosting WAF) or a DB-backed limiter for lookup/quote/upload | Hosting choice |

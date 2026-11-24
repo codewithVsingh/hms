@@ -128,7 +128,8 @@ function useAction() {
     [msg, setMsg] = useState(''),
     [error, setError] = useState('');
   const lock = useRef(false);
-  const run = async (task: () => Promise<void>, success = '') => {
+  // `success` may be a function so the message can use values produced by the task.
+  const run = async (task: () => Promise<void>, success: string | (() => string) = '') => {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
@@ -136,7 +137,7 @@ function useAction() {
     setMsg('');
     try {
       await task();
-      setMsg(success);
+      setMsg(typeof success === 'function' ? success() : success);
     } catch (e) {
       setError(message(e));
     } finally {
@@ -832,7 +833,8 @@ function Leaves({ demo }: { demo: boolean }) {
     }>({ doctors: [], leaves: [] }),
     [doctor, setDoctor] = useState(''),
     [start, setStart] = useState(''),
-    [end, setEnd] = useState('');
+    [end, setEnd] = useState(''),
+    [reason, setReason] = useState<LeaveReason>('leave');
   const a = useAction();
   const load = async () =>
     setData(
@@ -857,34 +859,47 @@ function Leaves({ demo }: { demo: boolean }) {
   return (
     <Panel title="Doctor leave calendar">
       <Notice>
-        Times are in IST. Existing confirmed or held appointments must be moved or cancelled before leave is
-        added.
+        Times are in IST. Saving blocks new bookings in this period straight away. Patients already booked
+        appear under Affected bookings, where reception can move them or cancel with a full refund.
       </Notice>
       <form
         className="stack"
         onSubmit={(e) => {
           e.preventDefault();
-          void a.run(async () => {
-            if (demo)
-              setData((d) => ({
-                ...d,
-                leaves: [
-                  ...d.leaves,
-                  {
-                    id: String(Date.now()),
-                    doctor: d.doctors.find((x) => x.id === doctor)?.name || 'Doctor',
-                    starts_at: asIST(start),
-                    ends_at: asIST(end),
-                  },
-                ],
-              }));
-            else {
-              await v2('leaves', { doctorId: doctor, start: asIST(start), end: asIST(end) });
-              await load();
-            }
-            setStart('');
-            setEnd('');
-          }, 'Leave saved.');
+          let affected = 0;
+          void a.run(
+            async () => {
+              if (demo)
+                setData((d) => ({
+                  ...d,
+                  leaves: [
+                    ...d.leaves,
+                    {
+                      id: String(Date.now()),
+                      doctor: d.doctors.find((x) => x.id === doctor)?.name || 'Doctor',
+                      starts_at: asIST(start),
+                      ends_at: asIST(end),
+                    },
+                  ],
+                }));
+              else {
+                const r = await v2<{ affected: number }>('leaves', {
+                  doctorId: doctor,
+                  start: asIST(start),
+                  end: asIST(end),
+                  reason,
+                });
+                affected = r.affected;
+                await load();
+              }
+              setStart('');
+              setEnd('');
+            },
+            () =>
+              affected > 0
+                ? `Leave saved. ${affected} booked patient${affected === 1 ? '' : 's'} need action under Affected bookings.`
+                : 'Leave saved. No existing bookings are affected.',
+          );
         }}
       >
         <Field label="Doctor">
@@ -905,6 +920,15 @@ function Leaves({ demo }: { demo: boolean }) {
             <input type="datetime-local" required value={end} onChange={(e) => setEnd(e.target.value)} />
           </Field>
         </div>
+        <Field label="Reason (internal)">
+          <select value={reason} onChange={(e) => setReason(e.target.value as LeaveReason)}>
+            {leaveReasons.map(([k, label]) => (
+              <option key={k} value={k}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </Field>
         <Button type="submit" disabled={a.busy || !doctor || !start || !end || start >= end}>
           Block availability
         </Button>
@@ -917,6 +941,269 @@ function Leaves({ demo }: { demo: boolean }) {
           </p>
         </div>
       ))}
+      {a.feedback}
+    </Panel>
+  );
+}
+type LeaveReason = 'leave' | 'unwell' | 'emergency' | 'training' | 'holiday' | 'other';
+const leaveReasons: [LeaveReason, string][] = [
+  ['leave', 'Planned leave'],
+  ['unwell', 'Unwell'],
+  ['emergency', 'Emergency'],
+  ['training', 'Training / conference'],
+  ['holiday', 'Hospital holiday'],
+  ['other', 'Other'],
+];
+const methodLabel: Record<string, string> = {
+  razorpay: 'online',
+  cash: 'cash',
+  upi_offline: 'UPI at desk',
+  card_offline: 'card at desk',
+  bank_transfer: 'bank transfer',
+};
+type Affected = {
+  id: string;
+  reference: string;
+  status: string;
+  startsAt: string;
+  doctor: string;
+  patient: string;
+  mrn: string;
+  phone: string | null;
+  leaveReason: LeaveReason;
+  leaveEndsAt: string;
+  paidPaise: number;
+  paymentMethod: string | null;
+};
+const demoAffected: Affected[] = [
+  {
+    id: 'demo-a1',
+    reference: 'BK-7K2M9QX',
+    status: 'confirmed',
+    startsAt: now,
+    doctor: 'Dr. Ananya Sharma',
+    patient: 'Sample Patient D',
+    mrn: 'PT-000104',
+    phone: '+910000000000',
+    leaveReason: 'unwell',
+    leaveEndsAt: now,
+    paidPaise: 50000,
+    paymentMethod: 'razorpay',
+  },
+  {
+    id: 'demo-a2',
+    reference: 'BK-H4TN8PW',
+    status: 'confirmed',
+    startsAt: now,
+    doctor: 'Dr. Ananya Sharma',
+    patient: 'Sample Patient E',
+    mrn: 'PT-000105',
+    phone: '+910000000000',
+    leaveReason: 'unwell',
+    leaveEndsAt: now,
+    paidPaise: 0,
+    paymentMethod: null,
+  },
+];
+function refundLine(r: Affected) {
+  if (r.paidPaise <= 0) return 'Not paid yet: nothing to refund.';
+  return r.paymentMethod === 'razorpay'
+    ? `Full refund of ${rupees(r.paidPaise)} to the original online payment after administrator approval (usually 5–7 working days once sent).`
+    : `Full refund of ${rupees(r.paidPaise)} due at the desk (paid by ${methodLabel[r.paymentMethod || ''] || 'desk payment'}). Billing records it under Desk refunds.`;
+}
+function AffectedRow({ row, demo, onDone }: { row: Affected; demo: boolean; onDone: () => Promise<void> }) {
+  const [confirming, setConfirming] = useState(false),
+    [reason, setReason] = useState<'doctor_unavailable' | 'hospital_closure' | 'other'>('doctor_unavailable');
+  const a = useAction();
+  return (
+    <div className="ops-item stack">
+      <div>
+        <strong className="break-ref">{row.reference}</strong> · {row.patient} ({row.mrn})
+        <p>
+          {when(row.startsAt)} with {row.doctor} ·{' '}
+          <Badge tone={row.paidPaise > 0 ? 'green' : 'amber'}>
+            {row.paidPaise > 0
+              ? `Paid ${rupees(row.paidPaise)} ${methodLabel[row.paymentMethod || ''] || ''}`
+              : row.status === 'held'
+                ? 'Payment pending'
+                : 'Pay at hospital'}
+          </Badge>
+        </p>
+        {row.phone && (
+          <p>
+            Call patient: <a href={`tel:${row.phone}`}>{row.phone}</a>
+          </p>
+        )}
+      </div>
+      {row.status === 'confirmed' && <MoveAppointment id={row.id} demo={demo} onDone={onDone} />}
+      {!confirming ? (
+        <Button variant="danger" onClick={() => setConfirming(true)}>
+          Cancel with full refund
+        </Button>
+      ) : (
+        <div className="ops-item stack" role="group" aria-label={`Confirm cancellation of ${row.reference}`}>
+          <strong>Cancel {row.reference}?</strong>
+          <p>
+            {row.patient} · {when(row.startsAt)} · {row.doctor}
+          </p>
+          <p>{refundLine(row)}</p>
+          <p className="ops-muted">
+            No cancellation fee applies to hospital-initiated cancellations. The patient is notified on their
+            opted-in channels.
+          </p>
+          <Field label="Reason">
+            <select value={reason} onChange={(e) => setReason(e.target.value as typeof reason)}>
+              <option value="doctor_unavailable">Doctor unavailable</option>
+              <option value="hospital_closure">Hospital closure</option>
+              <option value="other">Other</option>
+            </select>
+          </Field>
+          <div className="form-grid">
+            <Button variant="secondary" disabled={a.busy} onClick={() => setConfirming(false)}>
+              Back
+            </Button>
+            <Button
+              variant="danger"
+              disabled={a.busy}
+              onClick={() =>
+                void a.run(
+                  async () => {
+                    if (!demo) await v2('appointments/hospital-cancel', { id: row.id, reason });
+                    await onDone();
+                  },
+                  demo ? 'Demo only: no booking was cancelled.' : 'Booking cancelled.',
+                )
+              }
+            >
+              Confirm cancellation
+            </Button>
+          </div>
+        </div>
+      )}
+      {a.feedback}
+    </div>
+  );
+}
+function AffectedBookings({ demo }: { demo: boolean }) {
+  const [rows, setRows] = useState<Affected[] | null>(null);
+  const a = useAction();
+  const load = async () => setRows(demo ? demoAffected : await v2<Affected[]>('leaves/affected'));
+  useEffect(() => {
+    void a.run(load);
+    // Reload only when switching demo/live; `load` and `a` are recreated every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demo]);
+  return (
+    <Panel title="Bookings affected by doctor unavailability">
+      <Notice>
+        These patients are booked while their doctor is unavailable. Call them, then move the visit to another
+        time with the same doctor, or cancel with a full refund.
+      </Notice>
+      {rows === null ? (
+        <p aria-busy="true">Loading…</p>
+      ) : rows.length === 0 ? (
+        <Notice tone="success">No bookings need action.</Notice>
+      ) : (
+        rows.map((r) => (
+          <AffectedRow
+            key={r.id}
+            row={r}
+            demo={demo}
+            onDone={async () => (demo ? setRows((x) => (x || []).filter((y) => y.id !== r.id)) : load())}
+          />
+        ))
+      )}
+      {a.feedback}
+    </Panel>
+  );
+}
+type DeskRefund = {
+  id: string;
+  amountPaise: number;
+  paidBy: string;
+  reference: string;
+  patient: string;
+  mrn: string;
+  reason: string;
+  requestedAt: string;
+};
+function DeskRefunds({ demo }: { demo: boolean }) {
+  const [rows, setRows] = useState<DeskRefund[] | null>(null),
+    [method, setMethod] = useState<Record<string, string>>({});
+  const a = useAction();
+  const load = async () =>
+    setRows(
+      demo
+        ? [
+            {
+              id: 'demo-r1',
+              amountPaise: 50000,
+              paidBy: 'cash',
+              reference: 'BK-H4TN8PW',
+              patient: 'Sample Patient E',
+              mrn: 'PT-000105',
+              reason: 'doctor_unavailable',
+              requestedAt: now,
+            },
+          ]
+        : await v2<DeskRefund[]>('refunds/desk'),
+    );
+  useEffect(() => {
+    void a.run(load);
+    // Reload only when switching demo/live; `load` and `a` are recreated every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demo]);
+  return (
+    <Panel title="Refunds due at the desk">
+      <Notice>
+        Hand the full amount back to the patient, then record how it was returned. Online payments are
+        refunded through Razorpay and do not appear here.
+      </Notice>
+      {rows === null ? (
+        <p aria-busy="true">Loading…</p>
+      ) : rows.length === 0 ? (
+        <Notice tone="success">No desk refunds pending.</Notice>
+      ) : (
+        rows.map((r) => (
+          <div className="ops-item stack" key={r.id}>
+            <div>
+              <strong>{rupees(r.amountPaise)}</strong> to {r.patient} ({r.mrn}) · {r.reference}
+              <p>
+                Paid by {methodLabel[r.paidBy] || r.paidBy} · cancelled {when(r.requestedAt)} (
+                {human(r.reason)})
+              </p>
+            </div>
+            <Field label="Returned by">
+              <select
+                value={method[r.id] || r.paidBy}
+                onChange={(e) => setMethod((m) => ({ ...m, [r.id]: e.target.value }))}
+              >
+                <option value="cash">Cash</option>
+                <option value="upi_offline">UPI</option>
+                <option value="card_offline">Card reversal</option>
+                <option value="bank_transfer">Bank transfer</option>
+              </select>
+            </Field>
+            <Button
+              disabled={a.busy}
+              onClick={() =>
+                void a.run(
+                  async () => {
+                    if (demo) setRows((x) => (x || []).filter((y) => y.id !== r.id));
+                    else {
+                      await v2('refunds/desk', { id: r.id, method: method[r.id] || r.paidBy });
+                      await load();
+                    }
+                  },
+                  demo ? 'Demo only: nothing recorded.' : 'Refund recorded.',
+                )
+              }
+            >
+              Record refund given
+            </Button>
+          </div>
+        ))
+      )}
       {a.feedback}
     </Panel>
   );
@@ -1404,6 +1691,10 @@ export function ExtendedPanel({ section, demo = false }: { section: string; demo
       return <QueuePanel demo={demo} />;
     case 'leave':
       return <Leaves demo={demo} />;
+    case 'affected-bookings':
+      return <AffectedBookings demo={demo} />;
+    case 'desk-refunds':
+      return <DeskRefunds demo={demo} />;
     case 'analytics':
       return <Reports demo={demo} />;
     case 'team-management':

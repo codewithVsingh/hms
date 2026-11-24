@@ -6,7 +6,7 @@ It is not yet ready for staging or production. Database security, payment integr
 
 ## Before staging
 
-- [ ] Create a dedicated staging Supabase project; apply migrations 001–020; all `verify_*.sql` pass
+- [ ] Create a dedicated staging Supabase project; apply migrations 001–021; all `verify_*.sql` pass
 - [ ] Complete the Supabase Auth / storage checklist in [SECURITY_HARDENING.md](SECURITY_HARDENING.md)
 - [ ] Deploy website and portal to staging hosting with the environment from [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md); `/api/health` (with secret) reports `mode: live` and the expected checks
 - [ ] Razorpay **test** keys and webhook configured; run book → pay → webhook → cancel → refund end to end
@@ -17,7 +17,6 @@ It is not yet ready for staging or production. Database security, payment integr
 
 | Item | Ref | Owner |
 |---|---|---|
-| Doctor-unavailability workflow (bulk reschedule/cancel with refund and notification) | HMS-016 | Engineering |
 | Prescription amendment/void with version history, after clinical sign-off | HMS-017 | Engineering + clinical lead |
 | Duplicate patient detection and reviewed merge | HMS-018 | Engineering |
 | Edge rate limiting on `/api/*` | HMS-020 | Engineering / hosting |

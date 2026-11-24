@@ -28,3 +28,14 @@ Private RPCs with server-only settlement permissions: `hms_claim_order`, `hms_at
 ## Health check
 
 `GET /api/health` (portal). Without credentials it returns only `{"status":"ok"|"degraded"}` (HTTP 200/503) for uptime monitors. With `Authorization: Bearer <CRON_SECRET>` it adds the mode (demo/live), payment mode, which configuration groups are present (never values) and a database round trip. Responses are `no-store`.
+
+
+## Doctor unavailability (v2)
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `leaves` | Record leave `{doctorId, start, end, reason}`; returns `{leaveId, affected}`. No longer refused when bookings exist. |
+| GET | `leaves/affected` | Live bookings overlapping current/future leave (reception/admin) |
+| POST | `appointments/hospital-cancel` | `{id, reason}`: hospital cancellation, full refund (online → admin approval; desk → desk refunds) |
+| GET | `refunds/desk` | Desk refunds waiting to be handed back (billing) |
+| POST | `refunds/desk` | `{id, method}`: record a desk refund as given |

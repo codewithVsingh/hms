@@ -37,7 +37,8 @@ Key: **Done** = implemented end to end (UI → API → DB) · **Done (tested)** 
 | Check-in, OPD tokens, queue | Done | |
 | No-show, completion status | Done | |
 | Reminders and notifications | Config | Providers not connected (HMS-023) |
-| Doctor unavailable after booking (bulk handling) | Partial | Leave refused while bookings exist (HMS-016) |
+| Doctor unavailable after booking | Done (tested) | Leave with reason → Affected bookings → reschedule or hospital cancel with full refund (online or desk); T13 |
+| Hospital-initiated cancellation and desk refunds | Done (tested) | No fee; reason recorded; billing records desk refunds |
 | Waiting list | Missing | Roadmap |
 
 ## Patients and clinical

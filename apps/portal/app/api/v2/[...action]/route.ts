@@ -31,6 +31,9 @@ const errs: Record<string, string> = {
   DOCTOR_PROFILE_REQUIRED: 'Provision a doctor profile and branch first.',
   EXISTING_MEMBERSHIP: 'The identity already belongs to a team; review it manually.',
   CONFIGURATION_REQUIRED: 'This integration is not configured.',
+  PAYMENT_REVIEW:
+    'This booking has an unusual payment state. Ask an administrator to cancel and refund it from Refunds.',
+  REFUND_MISMATCH: 'Refund amount does not match the payment. Ask an administrator to review it.',
 };
 function fail(e: unknown) {
   const msg = e instanceof Error ? e.message : '';
@@ -95,6 +98,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ acti
     if (path === 'queue')
       return out(await rpc(c, 'hms_v3_queue', { ...args, p_day: day.parse(q.get('date')) }));
     if (path === 'leaves') return out(await rpc(c, 'hms_v3_leaves', args));
+    if (path === 'leaves/affected') return out(await rpc(c, 'hms_v5_affected_bookings', args));
+    if (path === 'refunds/desk') return out(await rpc(c, 'hms_v5_desk_refunds', args));
     if (path === 'reports')
       return out(
         await rpc(c, 'hms_v3_reports', {
@@ -289,10 +294,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
       );
     }
     if (path === 'leaves') {
-      const x = z.object({ doctorId: id, start: z.iso.datetime(), end: z.iso.datetime() }).parse(b);
+      // Records the unavailability even when bookings exist; affected bookings are then resolved
+      // from "Affected bookings" (reschedule or hospital cancellation with full refund).
+      const x = z
+        .object({
+          doctorId: id,
+          start: z.iso.datetime(),
+          end: z.iso.datetime(),
+          reason: z.enum(['leave', 'unwell', 'emergency', 'training', 'holiday', 'other']).default('leave'),
+        })
+        .parse(b);
       return out(
-        await rpc(c, 'hms_v3_leave_add', { ...args, p_doctor: x.doctorId, p_start: x.start, p_end: x.end }),
+        await rpc(c, 'hms_v5_leave_add', {
+          ...args,
+          p_doctor: x.doctorId,
+          p_start: x.start,
+          p_end: x.end,
+          p_reason: x.reason,
+        }),
       );
+    }
+    if (path === 'appointments/hospital-cancel') {
+      const x = z
+        .object({ id, reason: z.enum(['doctor_unavailable', 'hospital_closure', 'other']) })
+        .parse(b);
+      return out(await rpc(c, 'hms_v5_hospital_cancel', { p_id: x.id, p_reason: x.reason }));
+    }
+    if (path === 'refunds/desk') {
+      const x = z
+        .object({ id, method: z.enum(['cash', 'upi_offline', 'card_offline', 'bank_transfer']) })
+        .parse(b);
+      return out(await rpc(c, 'hms_v5_record_desk_refund', { p_id: x.id, p_method: x.method }));
     }
     if (path === 'team/roles') {
       const x = z.object({ member: id, roles: z.array(role).max(6) }).parse(b);

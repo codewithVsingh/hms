@@ -64,9 +64,10 @@ Apply in filename order. Never edit a migration that has been applied; add a new
 | 018 | `…0018_cancellation_policy` | Policy versions, cancellation ledger, policy refunds |
 | 019 | `202611250019_random_references_and_audit_guard` | Random booking references, append-only audit log |
 | 020 | `202611250020_patient_search_audit` | Patient search by mobile/reference; searches audited |
+| 021 | `202611250021_doctor_unavailability` | Leave reasons, affected-bookings list, hospital cancellation with full refund, desk refunds |
 
 **Existing databases:** if migration 012 was attempted before, it failed and rolled back completely. Apply the corrected 012, then 013 onward in order. Use the Supabase migration history (`supabase_migrations.schema_migrations`) to see exactly what is applied.
 
 ## Testing
 
-`supabase/tests/local/run.sh` builds a fresh database (Supabase shim + all migrations), runs the four `verify_*.sql` scripts, the behavioural suite (`10_behaviour.sql`, T1–T9, T11, T12) and the concurrency race (`20_concurrency.sh`). CI runs it on `postgres:16` for every pull request. The shim in `tests/local/00_supabase_shim.sql` is for local and CI use only. Never apply it to a Supabase project.
+`supabase/tests/local/run.sh` builds a fresh database (Supabase shim + all migrations), runs the four `verify_*.sql` scripts, the behavioural suite (`10_behaviour.sql`, T1–T9, T11–T13) and the concurrency race (`20_concurrency.sh`). CI runs it on `postgres:16` for every pull request. The shim in `tests/local/00_supabase_shim.sql` is for local and CI use only. Never apply it to a Supabase project.

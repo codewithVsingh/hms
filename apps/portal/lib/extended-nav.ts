@@ -70,6 +70,20 @@ export const extendedNav = [
     roles: ['staff'],
   },
   {
+    id: 'affected-bookings',
+    label: 'Affected bookings',
+    icon: 'alert',
+    perms: ['appointments.create', 'settings.manage'],
+    roles: ['staff', 'admin'],
+  },
+  {
+    id: 'desk-refunds',
+    label: 'Desk refunds',
+    icon: 'wallet',
+    perms: ['payments.collect'],
+    roles: ['staff', 'admin'],
+  },
+  {
     id: 'cancellation-policy',
     label: 'Cancellation policy',
     icon: 'settings',

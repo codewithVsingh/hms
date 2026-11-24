@@ -38,6 +38,12 @@ Patients are not a staff role. They act through a verified phone session, and ev
 - Super admin intentionally has no clinical permissions. Admins manage the hospital, not medical records.
 - Receptionists can record a prescription handover or attach a paper copy, but cannot edit clinical content.
 
+## Doctor unavailability (migration 021)
+
+- Add leave with a reason: super admin, or the doctor for their own schedule.
+- See affected bookings and cancel as the hospital (full refund, reason recorded): `appointments.create` (reception) or `settings.manage` (admin). Patient phone numbers are shown only to roles with `patients.demographics.read`.
+- Record a refund given at the desk: `payments.collect` (billing). Online refunds still need `refunds.approve` (admin) unless automatic policy refunds are on.
+
 ## Gaps and decisions pending
 
 - Nurse vitals entry (`vitals.write`): HMS-021.

@@ -328,3 +328,102 @@ DO $$ BEGIN
   PERFORM hms_test.ok(NOT EXISTS (SELECT 1 FROM hms.audit_logs WHERE to_jsonb(audit_logs)::text ILIKE '%alpha%' OR to_jsonb(audit_logs)::text LIKE '%9000000001%'), 'search text is not stored in the audit log');
 END $$;
 \echo 'ok T12 staff search by phone, reference and name; patients cannot search; searches audited without search text'
+
+-- ---------------------------------------------------------------- T13 doctor unavailability (migration 021)
+-- Bookings in the window: far_appt (Alpha, paid online), Beta's booking on near_slot (pays at desk),
+-- held_appt (Alpha, held, unpaid). The window ends before the slots T10 uses (> 9 days ahead).
+SELECT hms_test.put('beta_near', id::text) FROM hms.appointments WHERE slot_id = hms_test.get('near_slot')::uuid AND status = 'confirmed';
+SELECT hms_test.put('leave_start', (now() + interval '1 hour')::text);
+SELECT hms_test.put('leave_end', (now() + interval '8 days')::text);
+SELECT hms_test.put('free_in_window', s.id::text) FROM hms.appointment_slots s
+  WHERE s.doctor_id = hms_test.get('doctor')::uuid AND s.starts_at > now() + interval '2 days' AND s.starts_at < now() + interval '4 days'
+    AND NOT EXISTS (SELECT 1 FROM hms.appointments a WHERE a.slot_id = s.id) ORDER BY s.starts_at LIMIT 1;
+BEGIN; -- reception collects the desk payment for Beta
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000003', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT public.hms_collect_offline(hms_test.get('beta_near')::uuid, 'cash');
+-- Reception (no settings.manage, not the doctor) cannot add leave.
+SELECT hms_test.expect_error(format('SELECT public.hms_v5_leave_add(%L,%L,%L,%L,%L,%L)', hms_test.get('org'), hms_test.get('branch'), hms_test.get('doctor'), hms_test.get('leave_start'), hms_test.get('leave_end'), 'unwell'), 'FORBIDDEN');
+COMMIT;
+BEGIN;
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000001', 'aal2');
+SET LOCAL ROLE authenticated;
+-- The original function still refuses (unchanged behaviour); the new one records the leave.
+SELECT hms_test.expect_error(format('SELECT public.hms_v3_leave_add(%L,%L,%L,%L,%L)', hms_test.get('org'), hms_test.get('branch'), hms_test.get('doctor'), hms_test.get('leave_start'), hms_test.get('leave_end')), 'LEAVE_HAS_BOOKINGS');
+SELECT hms_test.expect_error(format('SELECT public.hms_v5_leave_add(%L,%L,%L,%L,%L,%L)', hms_test.get('org'), hms_test.get('branch'), hms_test.get('doctor'), hms_test.get('leave_start'), hms_test.get('leave_end'), 'holiday-ish'), 'INVALID_REQUEST');
+SELECT hms_test.ok((public.hms_v5_leave_add(hms_test.get('org')::uuid, hms_test.get('branch')::uuid, hms_test.get('doctor')::uuid, hms_test.get('leave_start')::timestamptz, hms_test.get('leave_end')::timestamptz, 'unwell')->>'affected')::int = 3, 'leave recorded and 3 affected bookings reported');
+COMMIT;
+BEGIN; -- the leave blocks new bookings immediately
+SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000b', 'aal1');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.expect_error(format('SELECT public.hms_v4_book_self(%L,%L,%L,%L,%L,gen_random_uuid(),%L,true,50000,2)', 'test-hospital','MAIN', hms_test.get('free_in_window'), 'Patient Beta', 'hospital', 'v1'), 'SLOT_UNAVAILABLE');
+SELECT hms_test.expect_error(format('SELECT public.hms_v5_affected_bookings(%L,%L)', hms_test.get('org'), hms_test.get('branch')), 'FORBIDDEN');
+SELECT hms_test.expect_error(format('SELECT public.hms_v5_hospital_cancel(%L,%L)', hms_test.get('far_appt'), 'doctor_unavailable'), 'FORBIDDEN');
+COMMIT;
+BEGIN;
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000003', 'aal2');
+SET LOCAL ROLE authenticated;
+DO $$
+DECLARE r jsonb; x jsonb;
+BEGIN
+  r := public.hms_v5_affected_bookings(hms_test.get('org')::uuid, hms_test.get('branch')::uuid);
+  PERFORM hms_test.ok(jsonb_array_length(r) = 3, 'reception sees the 3 affected bookings: ' || r::text);
+  PERFORM hms_test.ok((SELECT bool_and(e->>'leaveReason' = 'unwell' AND e->>'phone' LIKE '+91%') FROM jsonb_array_elements(r) e), 'affected rows carry leave reason and phone for call-back');
+  PERFORM hms_test.ok((SELECT e->>'paymentMethod' FROM jsonb_array_elements(r) e WHERE e->>'id' = hms_test.get('beta_near')) = 'cash', 'desk payment shown');
+  PERFORM hms_test.expect_error(format('SELECT public.hms_v5_hospital_cancel(%L,%L)', hms_test.get('far_appt'), 'because'), 'INVALID_REQUEST');
+  -- Online-paid booking: full refund requested (no cancellation fee even inside 24h policy window).
+  x := public.hms_v5_hospital_cancel(hms_test.get('far_appt')::uuid, 'doctor_unavailable');
+  PERFORM hms_test.ok(x->>'refundMode' = 'online' AND (x->>'refundPaise')::bigint = 50000, 'online booking cancelled with full refund: ' || x::text);
+  PERFORM hms_test.put('far_refund', x->>'refundId');
+  PERFORM hms_test.ok((public.hms_v5_hospital_cancel(hms_test.get('far_appt')::uuid, 'doctor_unavailable')->>'repeat')::boolean, 'repeat cancel is idempotent');
+  -- Desk-paid booking: refund owed at the desk.
+  x := public.hms_v5_hospital_cancel(hms_test.get('beta_near')::uuid, 'doctor_unavailable');
+  PERFORM hms_test.ok(x->>'refundMode' = 'desk' AND (x->>'refundPaise')::bigint = 50000, 'desk booking cancelled, refund due at desk: ' || x::text);
+  PERFORM hms_test.put('desk_refund', x->>'refundId');
+  -- Held, unpaid booking: nothing to refund.
+  x := public.hms_v5_hospital_cancel(hms_test.get('held_appt')::uuid, 'doctor_unavailable');
+  PERFORM hms_test.ok(x->>'refundMode' = 'none' AND (x->>'refundPaise')::bigint = 0, 'unpaid hold cancelled without refund');
+  PERFORM hms_test.ok(jsonb_array_length(public.hms_v5_affected_bookings(hms_test.get('org')::uuid, hms_test.get('branch')::uuid)) = 0, 'affected list is empty once resolved');
+  -- Billing settles the desk refund.
+  r := public.hms_v5_desk_refunds(hms_test.get('org')::uuid, hms_test.get('branch')::uuid);
+  PERFORM hms_test.ok(jsonb_array_length(r) = 1 AND r->0->>'id' = hms_test.get('desk_refund'), 'desk refund listed for billing');
+  PERFORM hms_test.expect_error(format('SELECT public.hms_v5_record_desk_refund(%L,%L)', hms_test.get('far_refund'), 'cash'), 'FORBIDDEN');
+  PERFORM hms_test.ok(public.hms_v5_record_desk_refund(hms_test.get('desk_refund')::uuid, 'cash')->>'status' = 'processed', 'desk refund recorded');
+  PERFORM hms_test.ok((public.hms_v5_record_desk_refund(hms_test.get('desk_refund')::uuid, 'cash')->>'repeat')::boolean, 'recording twice is idempotent');
+  PERFORM hms_test.ok(jsonb_array_length(public.hms_v5_desk_refunds(hms_test.get('org')::uuid, hms_test.get('branch')::uuid)) = 0, 'desk list cleared');
+END $$;
+COMMIT;
+BEGIN; -- server paths: online refund is claimable, desk refund never goes to the provider
+SET LOCAL ROLE service_role;
+SELECT hms_test.ok(public.hms_v4_requested_refunds('test-hospital','MAIN') @> to_jsonb(hms_test.get('far_refund')), 'online hospital refund queued for provider');
+SELECT hms_test.ok(public.hms_v4_claim_requested_refund(hms_test.get('desk_refund')::uuid) IS NULL, 'desk refund is never sent to Razorpay');
+COMMIT;
+BEGIN; -- the patient sees the outcome on Manage booking
+SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000a', 'aal1');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.ok((SELECT (q->>'cancelled')::boolean AND (q->>'deductionPaise')::bigint = 0 AND (q->>'refundPaise')::bigint = 50000 AND q->>'refundStatus' = 'requested'
+  FROM (SELECT public.hms_v4_cancel_quote(hms_test.get('far_appt')::uuid) q) z), 'patient sees full refund requested');
+COMMIT;
+DO $$ BEGIN
+  PERFORM hms_test.ok((SELECT status FROM hms.payments WHERE id = (SELECT payment_id FROM hms.refunds WHERE id = hms_test.get('desk_refund')::uuid)) = 'refunded', 'desk payment marked refunded');
+  PERFORM hms_test.ok((SELECT settled_method FROM hms.refunds WHERE id = hms_test.get('desk_refund')::uuid) = 'cash', 'desk refund method recorded');
+  PERFORM hms_test.ok((SELECT count(*) FROM hms.booking_cancellations WHERE initiated_by = 'hospital' AND reason_code = 'doctor_unavailable') = 3, 'hospital cancellations recorded with reason');
+  PERFORM hms_test.ok((SELECT count(*) FROM hms.appointment_status_history WHERE reason_code = 'doctor_unavailable') = 3, 'status history carries reason');
+  PERFORM hms_test.ok((SELECT count(*) FROM hms.audit_logs WHERE action = 'appointment.hospital_cancel') = 3 AND EXISTS (SELECT 1 FROM hms.audit_logs WHERE action = 'refund.desk_settled'), 'hospital cancellations and desk refund audited');
+  PERFORM hms_test.ok((SELECT reason_code FROM hms.doctor_leaves ORDER BY created_at DESC LIMIT 1) = 'unwell', 'leave reason stored');
+END $$;
+SELECT hms_test.put('far_pay_id', id::text) FROM hms.payments WHERE provider_payment_id = 'pay_TEST1';
+BEGIN; -- admin approves the online hospital refund (full amount, never more)
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000001', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.ok((public.hms_refund_claim(hms_test.get('far_pay_id')::uuid, 'cancelled_visit')->>'amount')::bigint = 50000, 'admin approval uses the stored full amount');
+SELECT hms_test.expect_error(format('SELECT public.hms_refund_claim(%L,%L)', hms_test.get('far_pay_id'), 'cancelled_visit'), 'REFUND_REVIEW');
+COMMIT;
+BEGIN;
+SET LOCAL ROLE service_role;
+SELECT public.hms_apply_refund(hms_test.get('far_refund')::uuid, 'rfnd_TEST2', 'pay_TEST1', 50000, 'processed');
+COMMIT;
+DO $$ BEGIN
+  PERFORM hms_test.ok((SELECT status FROM hms.payments WHERE provider_payment_id = 'pay_TEST1') = 'refunded', 'online payment fully refunded after provider confirmation');
+END $$;
+\echo 'ok T13 doctor unavailable: leave recorded despite bookings, blocks new bookings, affected list, hospital cancel with full refund (online/desk/none), desk refund settlement'
