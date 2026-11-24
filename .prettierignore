@@ -1,0 +1,14 @@
+node_modules/
+.next/
+.turbo/
+pnpm-lock.yaml
+playwright-report/
+test-results/
+# Docs, SQL and the offline review bundle are kept as authored
+*.md
+*.sql
+*.txt
+*.html
+review/
+scripts/review-vendor/
+apps/*/next-env.d.ts

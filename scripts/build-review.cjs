@@ -1,11 +1,141 @@
-const fs=require('fs'),path=require('path'),ts=require('typescript');const root=path.resolve(__dirname,'..');
-const modules={};function walk(p){for(const f of fs.readdirSync(p)){const q=path.join(p,f);if(fs.statSync(q).isDirectory())walk(q);else if(/\.tsx?$/.test(q)&&!q.endsWith('.d.ts')&&!q.endsWith('next.config.ts')&&!q.endsWith('robots.ts')&&!q.endsWith('sitemap.ts')&&!q.endsWith('layout.tsx')&&!q.includes('/api/')&&!q.includes('/lib/server/')&&!q.endsWith('/route.ts')&&!q.endsWith('/proxy.ts')){let source=fs.readFileSync(q,'utf8');let code=ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.React,target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.CommonJS,esModuleInterop:true}}).outputText;if(!/import\s+\*\s+as\s+React/.test(source))code='const React = window.React;\n'+code;modules[path.relative(root,q)]=code;}}}for(const p of ['apps','packages'])walk(path.join(root,p));
-let bundle=`window.process={env:{NODE_ENV:'development',NEXT_PUBLIC_WEBSITE_URL:'http://localhost:8765',NEXT_PUBLIC_PORTAL_URL:'http://localhost:8765'}};if(!React.Fragment){React.Fragment=function(p){return React.Children.toArray(p.children)}};const mods={};\n`;
-for(const [id,code] of Object.entries(modules))bundle+=`mods[${JSON.stringify(id)}]=function(require,module,exports){${code}\n};\n`;
-bundle+=`const cache={};function norm(s){const parts=[];for(const p of s.split('/')){if(p==='..')parts.pop();else if(p!=='.')parts.push(p)}return parts.join('/')}function resolve(id,from){if(id==='@hms/ui')return 'packages/ui/index.tsx';if(id==='@hms/types')return 'packages/types/index.ts';if(id==='@hms/validation')return 'packages/validation/index.ts';if(id[0]==='.')id=norm(from.split('/').slice(0,-1).join('/')+'/'+id);for(const x of [id,id+'.ts',id+'.tsx',id+'/index.ts',id+'/index.tsx'])if(mods[x])return x;throw Error('Cannot resolve '+id+' from '+from)}function load(id,from=''){if(id==='react')return React;if(id==='server-only')return {};if(id==='next/script')return {__esModule:true,default:()=>null};if(id==='next/navigation')return {notFound(){throw Error('notFound')},redirect(url){location.hash='#'+url}};id=resolve(id,from);if(cache[id])return cache[id].exports;const m={exports:{}};cache[id]=m;mods[id]((i)=>load(i,id),m,m.exports);return m.exports}const e=React.createElement;const target=document.getElementById('root');let seq=0;async function main(){const key=++seq;const raw=location.hash.slice(1)||'/';const u=new URL(raw,'http://localhost:8765');const parts=u.pathname.split('/').filter(Boolean),role=parts[0];const portal=['login','book','doctor','staff','admin','patient','my-bookings','manage-booking','forgot-password','reset-password'].includes(role);document.body.classList.toggle('portal-preview',portal);document.getElementById('review-select').value=u.pathname;let node;if(portal){let screen;if(role==='login')screen=e(load('apps/portal/app/login/page.tsx').default);else if(role==='book')screen=e(load('apps/portal/features/booking.tsx').Booking,{websiteUrl:'http://localhost:8765',initialDoctor:u.searchParams.get('doctor')||undefined});else if(role==='manage-booking')screen=e(load('apps/portal/features/live/manage-booking.tsx').ManageBooking,{websiteUrl:'http://localhost:8765',demo:true});else if(role==='patient'||role==='my-bookings')screen=e(load('apps/portal/features/live/extended.tsx').PatientRecords,{demo:true});else if(role==='forgot-password'||role==='reset-password')screen=e(load('apps/portal/features/live/recovery.tsx').Recovery,{demo:true,reset:role==='reset-password'});else{const section=parts[1]||'dashboard';const ext=load('apps/portal/lib/extended-nav.ts');screen=ext.extraSection(section)?e(load('apps/portal/features/live/extended.tsx').ExtendedWorkspace,{role,section,demo:true}):e(load('apps/portal/features/workspace.tsx').Workspace,{role,section,websiteUrl:'http://localhost:8765'});}node=e('div',{key:raw},e('div',{className:'portal-language-bar'},e(load('packages/ui/locale.tsx').LanguageSwitch)),e(load('apps/portal/components/pwa.tsx').PortalPWA),screen);}else{const c=load('apps/website/components/chrome.tsx');let screen=role==='request-callback'?e(load('apps/website/app/request-callback/page.tsx').default):parts.length?await load('apps/website/app/[...slug]/page.tsx').default({params:Promise.resolve({slug:parts})}):e(load('apps/website/app/page.tsx').default);node=e('div',{key:raw},e(c.WebsiteHeader),e('main',{id:'main'},screen),e(c.WebsiteFooter),e(load('apps/website/components/whatsapp.tsx').WhatsAppContact));}if(key!==seq)return;ReactDOM.render(node,target);window.scrollTo(0,0);}
+const fs = require('fs'),
+  path = require('path'),
+  ts = require('typescript');
+const root = path.resolve(__dirname, '..');
+const modules = {};
+function walk(p) {
+  for (const f of fs.readdirSync(p)) {
+    const q = path.join(p, f);
+    if (fs.statSync(q).isDirectory()) walk(q);
+    else if (
+      /\.tsx?$/.test(q) &&
+      !q.endsWith('.d.ts') &&
+      !q.endsWith('next.config.ts') &&
+      !q.endsWith('robots.ts') &&
+      !q.endsWith('sitemap.ts') &&
+      !q.endsWith('layout.tsx') &&
+      !q.includes('/api/') &&
+      !q.includes('/lib/server/') &&
+      !q.endsWith('/route.ts') &&
+      !q.endsWith('/proxy.ts')
+    ) {
+      let source = fs.readFileSync(q, 'utf8');
+      let code = ts.transpileModule(source, {
+        compilerOptions: {
+          jsx: ts.JsxEmit.React,
+          target: ts.ScriptTarget.ES2020,
+          module: ts.ModuleKind.CommonJS,
+          esModuleInterop: true,
+        },
+      }).outputText;
+      if (!/import\s+\*\s+as\s+React/.test(source)) code = 'const React = window.React;\n' + code;
+      modules[path.relative(root, q)] = code;
+    }
+  }
+}
+for (const p of ['apps', 'packages']) walk(path.join(root, p));
+let bundle = `window.process={env:{NODE_ENV:'development',NEXT_PUBLIC_WEBSITE_URL:'http://localhost:8765',NEXT_PUBLIC_PORTAL_URL:'http://localhost:8765'}};if(!React.Fragment){React.Fragment=function(p){return React.Children.toArray(p.children)}};const mods={};\n`;
+for (const [id, code] of Object.entries(modules))
+  bundle += `mods[${JSON.stringify(id)}]=function(require,module,exports){${code}\n};\n`;
+bundle += `const cache={};function norm(s){const parts=[];for(const p of s.split('/')){if(p==='..')parts.pop();else if(p!=='.')parts.push(p)}return parts.join('/')}function resolve(id,from){if(id==='@hms/ui')return 'packages/ui/index.tsx';if(id==='@hms/types')return 'packages/types/index.ts';if(id==='@hms/validation')return 'packages/validation/index.ts';if(id[0]==='.')id=norm(from.split('/').slice(0,-1).join('/')+'/'+id);for(const x of [id,id+'.ts',id+'.tsx',id+'/index.ts',id+'/index.tsx'])if(mods[x])return x;throw Error('Cannot resolve '+id+' from '+from)}function load(id,from=''){if(id==='react')return React;if(id==='server-only')return {};if(id==='next/script')return {__esModule:true,default:()=>null};if(id==='next/navigation')return {notFound(){throw Error('notFound')},redirect(url){location.hash='#'+url}};id=resolve(id,from);if(cache[id])return cache[id].exports;const m={exports:{}};cache[id]=m;mods[id]((i)=>load(i,id),m,m.exports);return m.exports}const e=React.createElement;const target=document.getElementById('root');let seq=0;async function main(){const key=++seq;const raw=location.hash.slice(1)||'/';const u=new URL(raw,'http://localhost:8765');const parts=u.pathname.split('/').filter(Boolean),role=parts[0];const portal=['login','book','doctor','staff','admin','patient','my-bookings','manage-booking','forgot-password','reset-password'].includes(role);document.body.classList.toggle('portal-preview',portal);document.getElementById('review-select').value=u.pathname;let node;if(portal){let screen;if(role==='login')screen=e(load('apps/portal/app/login/page.tsx').default);else if(role==='book')screen=e(load('apps/portal/features/booking.tsx').Booking,{websiteUrl:'http://localhost:8765',initialDoctor:u.searchParams.get('doctor')||undefined});else if(role==='manage-booking')screen=e(load('apps/portal/features/live/manage-booking.tsx').ManageBooking,{websiteUrl:'http://localhost:8765',demo:true});else if(role==='patient'||role==='my-bookings')screen=e(load('apps/portal/features/live/extended.tsx').PatientRecords,{demo:true});else if(role==='forgot-password'||role==='reset-password')screen=e(load('apps/portal/features/live/recovery.tsx').Recovery,{demo:true,reset:role==='reset-password'});else{const section=parts[1]||'dashboard';const ext=load('apps/portal/lib/extended-nav.ts');screen=ext.extraSection(section)?e(load('apps/portal/features/live/extended.tsx').ExtendedWorkspace,{role,section,demo:true}):e(load('apps/portal/features/workspace.tsx').Workspace,{role,section,websiteUrl:'http://localhost:8765'});}node=e('div',{key:raw},e('div',{className:'portal-language-bar'},e(load('packages/ui/locale.tsx').LanguageSwitch)),e(load('apps/portal/components/pwa.tsx').PortalPWA),screen);}else{const c=load('apps/website/components/chrome.tsx');let screen=role==='request-callback'?e(load('apps/website/app/request-callback/page.tsx').default):parts.length?await load('apps/website/app/[...slug]/page.tsx').default({params:Promise.resolve({slug:parts})}):e(load('apps/website/app/page.tsx').default);node=e('div',{key:raw},e(c.WebsiteHeader),e('main',{id:'main'},screen),e(c.WebsiteFooter),e(load('apps/website/components/whatsapp.tsx').WhatsAppContact));}if(key!==seq)return;ReactDOM.render(node,target);window.scrollTo(0,0);}
 function render(){main().catch(err=>{console.error(err);target.textContent='Preview route unavailable: '+err.message})}window.addEventListener('hashchange',render);document.getElementById('review-select').addEventListener('change',e=>location.hash='#'+e.target.value);document.addEventListener('click',e=>{const a=e.target.closest('a[href]');if(!a)return;const h=a.getAttribute('href');if(h.startsWith('#')||h.startsWith('blob:')||h.startsWith('data:'))return;try{const u=new URL(h,'http://localhost:8765');if(u.origin==='http://localhost:8765'||h.startsWith('/')){e.preventDefault();location.hash='#'+u.pathname+u.search;}else{e.preventDefault();alert('External links are disabled in the offline design preview.')}}catch{e.preventDefault();}});render();`;
-const react=fs.readFileSync(process.env.REVIEW_REACT_UMD||path.join(__dirname,'review-vendor/react.js'),'utf8');const adapter=fs.readFileSync(path.join(__dirname,'review-hook-adapter.js'),'utf8');const dom=fs.readFileSync(process.env.REVIEW_REACT_DOM_UMD||path.join(__dirname,'review-vendor/react-dom.js'),'utf8');
-const css=['packages/ui/styles.css','apps/website/app/website.css','apps/portal/app/portal.css'].map(x=>fs.readFileSync(path.join(root,x),'utf8')).join('\n');const pages=[['Public website',[['/','Homepage'],['/about','About'],['/doctors','Doctors'],['/services','Specialties'],['/health-library','Health library'],['/contact','Contact'],['/request-callback','Callback request']]],['Patient services',[['/book','Appointment booking'],['/manage-booking','Find / cancel booking'],['/patient','Patient records & preferences']]],['Doctor portal',[['/login','Portal login'],['/forgot-password','Password recovery'],['/doctor','Doctor dashboard'],['/doctor/appointments','Appointments'],['/doctor/care','Clinical records & prescriptions'],['/doctor/history','Patient history by MRN'],['/doctor/opd','OPD tokens'],['/doctor/leave','Leave & availability']]],['Staff portal',[['/staff','Staff dashboard'],['/staff/appointments','Reception appointments'],['/staff/patients','Patients'],['/staff/prescription-register','Prescription register'],['/staff/opd','OPD tokens'],['/staff/patient-edit','Patient corrections'],['/staff/inquiries','Inquiries'],['/staff/billing','Billing']]],['Admin portal',[['/admin','Admin dashboard'],['/admin/team-management','Team & roles'],['/admin/analytics','Reports'],['/admin/communications','Notifications'],['/admin/content','Website CMS'],['/admin/settings','Hospital settings'],['/admin/cancellation-policy','Cancellation policy'],['/admin/audit','Audit log']]]];
-const selector=pages.map(([g,p])=>'<optgroup label="'+g+'">'+p.map(([url,label])=>'<option value="'+url+'">'+label+'</option>').join('')+'</optgroup>').join('');
-const clean=s=>s.replace(/<\/script/gi,'<\\/script');
-fs.writeFileSync(path.join(root,'review/HMS_Mobile_Review.html'),'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>HMS interactive mobile review</title><style>'+css+'\n.review-bar{display:flex;align-items:center;gap:10px;justify-content:space-between;background:#163b3a;color:#fff;padding:10px 16px;position:relative;z-index:9999;font:13px system-ui;flex-wrap:wrap}.review-bar strong{display:block}.review-bar small{color:#c4e9dc;font-size:11px}.review-bar select{width:min(100%,300px);color:#142e33;background:white;border:0;border-radius:7px;padding:9px;font-size:13px}.review-bar label{display:flex;align-items:center;gap:8px}.review-bar label span{font-size:12px}@media(max-width:500px){.review-bar{gap:7px;padding:8px 12px}.review-bar label{width:100%}.review-bar select{width:100%;flex:1}}@media print{.review-bar{display:none}}</style></head><body><header class="review-bar"><div><strong>HMS · Interactive design review</strong><small>Offline demo · fictional records · no live data or payments</small></div><label><span>View</span><select id="review-select" aria-label="Choose preview screen">'+selector+'</select></label></header><div id="root"></div><script>'+clean(react)+'</script><script>'+clean(dom)+'</script><script>'+clean(adapter)+'</script><script>'+clean(bundle)+'</script></body></html>');
+const react = fs.readFileSync(
+  process.env.REVIEW_REACT_UMD || path.join(__dirname, 'review-vendor/react.js'),
+  'utf8',
+);
+const adapter = fs.readFileSync(path.join(__dirname, 'review-hook-adapter.js'), 'utf8');
+const dom = fs.readFileSync(
+  process.env.REVIEW_REACT_DOM_UMD || path.join(__dirname, 'review-vendor/react-dom.js'),
+  'utf8',
+);
+const css = ['packages/ui/styles.css', 'apps/website/app/website.css', 'apps/portal/app/portal.css']
+  .map((x) => fs.readFileSync(path.join(root, x), 'utf8'))
+  .join('\n');
+const pages = [
+  [
+    'Public website',
+    [
+      ['/', 'Homepage'],
+      ['/about', 'About'],
+      ['/doctors', 'Doctors'],
+      ['/services', 'Specialties'],
+      ['/health-library', 'Health library'],
+      ['/contact', 'Contact'],
+      ['/request-callback', 'Callback request'],
+    ],
+  ],
+  [
+    'Patient services',
+    [
+      ['/book', 'Appointment booking'],
+      ['/manage-booking', 'Find / cancel booking'],
+      ['/patient', 'Patient records & preferences'],
+    ],
+  ],
+  [
+    'Doctor portal',
+    [
+      ['/login', 'Portal login'],
+      ['/forgot-password', 'Password recovery'],
+      ['/doctor', 'Doctor dashboard'],
+      ['/doctor/appointments', 'Appointments'],
+      ['/doctor/care', 'Clinical records & prescriptions'],
+      ['/doctor/history', 'Patient history by MRN'],
+      ['/doctor/opd', 'OPD tokens'],
+      ['/doctor/leave', 'Leave & availability'],
+    ],
+  ],
+  [
+    'Staff portal',
+    [
+      ['/staff', 'Staff dashboard'],
+      ['/staff/appointments', 'Reception appointments'],
+      ['/staff/patients', 'Patients'],
+      ['/staff/prescription-register', 'Prescription register'],
+      ['/staff/opd', 'OPD tokens'],
+      ['/staff/patient-edit', 'Patient corrections'],
+      ['/staff/inquiries', 'Inquiries'],
+      ['/staff/billing', 'Billing'],
+    ],
+  ],
+  [
+    'Admin portal',
+    [
+      ['/admin', 'Admin dashboard'],
+      ['/admin/team-management', 'Team & roles'],
+      ['/admin/analytics', 'Reports'],
+      ['/admin/communications', 'Notifications'],
+      ['/admin/content', 'Website CMS'],
+      ['/admin/settings', 'Hospital settings'],
+      ['/admin/cancellation-policy', 'Cancellation policy'],
+      ['/admin/audit', 'Audit log'],
+    ],
+  ],
+];
+const selector = pages
+  .map(
+    ([g, p]) =>
+      '<optgroup label="' +
+      g +
+      '">' +
+      p.map(([url, label]) => '<option value="' + url + '">' + label + '</option>').join('') +
+      '</optgroup>',
+  )
+  .join('');
+const clean = (s) => s.replace(/<\/script/gi, '<\\/script');
+fs.writeFileSync(
+  path.join(root, 'review/HMS_Mobile_Review.html'),
+  '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>HMS interactive mobile review</title><style>' +
+    css +
+    '\n.review-bar{display:flex;align-items:center;gap:10px;justify-content:space-between;background:#163b3a;color:#fff;padding:10px 16px;position:relative;z-index:9999;font:13px system-ui;flex-wrap:wrap}.review-bar strong{display:block}.review-bar small{color:#c4e9dc;font-size:11px}.review-bar select{width:min(100%,300px);color:#142e33;background:white;border:0;border-radius:7px;padding:9px;font-size:13px}.review-bar label{display:flex;align-items:center;gap:8px}.review-bar label span{font-size:12px}@media(max-width:500px){.review-bar{gap:7px;padding:8px 12px}.review-bar label{width:100%}.review-bar select{width:100%;flex:1}}@media print{.review-bar{display:none}}</style></head><body><header class="review-bar"><div><strong>HMS · Interactive design review</strong><small>Offline demo · fictional records · no live data or payments</small></div><label><span>View</span><select id="review-select" aria-label="Choose preview screen">' +
+    selector +
+    '</select></label></header><div id="root"></div><script>' +
+    clean(react) +
+    '</script><script>' +
+    clean(dom) +
+    '</script><script>' +
+    clean(adapter) +
+    '</script><script>' +
+    clean(bundle) +
+    '</script></body></html>',
+);

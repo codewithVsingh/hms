@@ -1,4 +1,133 @@
-import { Icon,Button ,L} from '@hms/ui';
+import { Icon, Button, L } from '@hms/ui';
 import { portalUrl } from '../lib/config';
-export function HospitalIllustration(){return <div className="hero-visual" aria-label="Illustration of a modern healthcare facility" role="img"><svg viewBox="0 0 600 465" className="hospital-art" aria-hidden="true"><defs><linearGradient id="sky" x1="0" x2="1" y1="0" y2="1"><stop stopColor="#c7e9dd"/><stop offset="1" stopColor="#eef8ee"/></linearGradient><linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#b4d8d3"/><stop offset="1" stopColor="#5f9f9a"/></linearGradient><pattern id="windows" width="48" height="50" patternUnits="userSpaceOnUse"><rect x="8" y="7" width="34" height="33" rx="2" fill="#9dc8c5"/><path d="M25 7v33M8 24h34" stroke="#fff" strokeWidth="1" opacity=".7"/></pattern></defs><rect width="600" height="465" rx="32" fill="url(#sky)"/><circle cx="476" cy="85" r="60" fill="#fff" opacity=".38"/><path d="M0 335q90-70 183-34t210 6 207-7v165H0z" fill="#b1d8c7"/><path d="M0 401q170-51 314-8t286-15v87H0z" fill="#8ebdaf"/><ellipse cx="312" cy="410" rx="251" ry="26" fill="#659b8a" opacity=".27"/><path d="M132 120h304v266H132z" fill="#f8faf6"/><path d="M132 120 177 88h259l-1 32z" fill="#f0f7f1"/><path d="M436 120 499 153v233h-63z" fill="#d0e5df"/><rect x="151" y="181" width="118" height="182" fill="url(#windows)"/><rect x="320" y="181" width="105" height="182" fill="url(#windows)"/><rect x="278" y="181" width="34" height="182" fill="#dce9e4"/><rect x="172" y="130" width="244" height="43" rx="5" fill="#fff"/><rect x="185" y="138" width="27" height="27" rx="7" fill="#0a7469"/><path d="M198.5 144v15M191 151.5h15" stroke="white" strokeWidth="4" strokeLinecap="round"/><text x="224" y="157" fill="#165b55" fontFamily="Arial" fontWeight="700" fontSize="16">aarogya care</text><path d="M456 167h29v169h-29z" fill="url(#glass)"/><path d="M132 342h304v44H132z" fill="#d6eae1"/><rect x="251" y="317" width="92" height="69" rx="2" fill="#7fb4ad"/><path d="M297 317v69M251 347h92" stroke="#e8f6ee" strokeWidth="2"/><path d="M231 312h132l-9 12H240z" fill="#146f66"/><rect x="239" y="324" width="6" height="62" fill="#739c94"/><rect x="349" y="324" width="6" height="62" fill="#739c94"/><path d="M217 387h159l29 44H187z" fill="#e1e8d9"/><g><rect x="65" y="307" width="8" height="88" rx="3" fill="#527f67"/><ellipse cx="69" cy="302" rx="33" ry="55" fill="#5b9f82"/><ellipse cx="53" cy="319" rx="24" ry="34" fill="#76b093"/><rect x="531" y="306" width="8" height="83" rx="3" fill="#527f67"/><ellipse cx="535" cy="298" rx="29" ry="47" fill="#589b80"/><ellipse cx="549" cy="320" rx="22" ry="32" fill="#7db397"/></g><g fill="#fff" opacity=".7"><path d="M80 69h16v-16h9v16h16v9h-16v16h-9V78H80z"/><circle cx="460" cy="55" r="4"/></g><path d="M19 126h42l13-22 17 48 17-31h24" fill="none" stroke="#fff" strokeWidth="3" opacity=".8" strokeLinecap="round"/></svg><div className="float-card float-top"><span className="icon-tile"><Icon name="calendar" size={22}/></span><div><strong>Easy appointments</strong><small>Choose a convenient time</small></div></div><div className="float-card float-bottom"><span className="icon-tile"><Icon name="heart" size={22}/></span><div><strong>Care made personal</strong><small>One connected journey</small></div></div><span className="visual-caption">Illustrative facility · Demo</span></div>}
-export function Hero(){return <section className="hero"><div className="site-container hero-grid"><div className="hero-copy animate-in"><span className="eyebrow"><L en="Your health. Our priority."/></span><h1><L en="Care that feels"/><br/><em><L en="closer to home."/></em></h1><p><L en="A simpler way to find the right doctor, schedule a visit and stay connected to your care — all in one place."/></p><div className="hero-actions"><Button href={`${portalUrl}/book`} icon="calendar"><L en="Book an appointment"/><Icon name="arrow" size={17}/></Button><Button href="/doctors" variant="secondary"><L en="Meet our doctors"/></Button></div><div className="hero-proof"><span><Icon name="shield" size={17}/><L en="Privacy-first"/></span><span><Icon name="clock" size={17}/><L en="Convenient scheduling"/></span></div></div><div className="animate-in delay-1"><HospitalIllustration/></div></div></section>}
+export function HospitalIllustration() {
+  return (
+    <div className="hero-visual" aria-label="Illustration of a modern healthcare facility" role="img">
+      <svg viewBox="0 0 600 465" className="hospital-art" aria-hidden="true">
+        <defs>
+          <linearGradient id="sky" x1="0" x2="1" y1="0" y2="1">
+            <stop stopColor="#c7e9dd" />
+            <stop offset="1" stopColor="#eef8ee" />
+          </linearGradient>
+          <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+            <stop stopColor="#b4d8d3" />
+            <stop offset="1" stopColor="#5f9f9a" />
+          </linearGradient>
+          <pattern id="windows" width="48" height="50" patternUnits="userSpaceOnUse">
+            <rect x="8" y="7" width="34" height="33" rx="2" fill="#9dc8c5" />
+            <path d="M25 7v33M8 24h34" stroke="#fff" strokeWidth="1" opacity=".7" />
+          </pattern>
+        </defs>
+        <rect width="600" height="465" rx="32" fill="url(#sky)" />
+        <circle cx="476" cy="85" r="60" fill="#fff" opacity=".38" />
+        <path d="M0 335q90-70 183-34t210 6 207-7v165H0z" fill="#b1d8c7" />
+        <path d="M0 401q170-51 314-8t286-15v87H0z" fill="#8ebdaf" />
+        <ellipse cx="312" cy="410" rx="251" ry="26" fill="#659b8a" opacity=".27" />
+        <path d="M132 120h304v266H132z" fill="#f8faf6" />
+        <path d="M132 120 177 88h259l-1 32z" fill="#f0f7f1" />
+        <path d="M436 120 499 153v233h-63z" fill="#d0e5df" />
+        <rect x="151" y="181" width="118" height="182" fill="url(#windows)" />
+        <rect x="320" y="181" width="105" height="182" fill="url(#windows)" />
+        <rect x="278" y="181" width="34" height="182" fill="#dce9e4" />
+        <rect x="172" y="130" width="244" height="43" rx="5" fill="#fff" />
+        <rect x="185" y="138" width="27" height="27" rx="7" fill="#0a7469" />
+        <path d="M198.5 144v15M191 151.5h15" stroke="white" strokeWidth="4" strokeLinecap="round" />
+        <text x="224" y="157" fill="#165b55" fontFamily="Arial" fontWeight="700" fontSize="16">
+          aarogya care
+        </text>
+        <path d="M456 167h29v169h-29z" fill="url(#glass)" />
+        <path d="M132 342h304v44H132z" fill="#d6eae1" />
+        <rect x="251" y="317" width="92" height="69" rx="2" fill="#7fb4ad" />
+        <path d="M297 317v69M251 347h92" stroke="#e8f6ee" strokeWidth="2" />
+        <path d="M231 312h132l-9 12H240z" fill="#146f66" />
+        <rect x="239" y="324" width="6" height="62" fill="#739c94" />
+        <rect x="349" y="324" width="6" height="62" fill="#739c94" />
+        <path d="M217 387h159l29 44H187z" fill="#e1e8d9" />
+        <g>
+          <rect x="65" y="307" width="8" height="88" rx="3" fill="#527f67" />
+          <ellipse cx="69" cy="302" rx="33" ry="55" fill="#5b9f82" />
+          <ellipse cx="53" cy="319" rx="24" ry="34" fill="#76b093" />
+          <rect x="531" y="306" width="8" height="83" rx="3" fill="#527f67" />
+          <ellipse cx="535" cy="298" rx="29" ry="47" fill="#589b80" />
+          <ellipse cx="549" cy="320" rx="22" ry="32" fill="#7db397" />
+        </g>
+        <g fill="#fff" opacity=".7">
+          <path d="M80 69h16v-16h9v16h16v9h-16v16h-9V78H80z" />
+          <circle cx="460" cy="55" r="4" />
+        </g>
+        <path
+          d="M19 126h42l13-22 17 48 17-31h24"
+          fill="none"
+          stroke="#fff"
+          strokeWidth="3"
+          opacity=".8"
+          strokeLinecap="round"
+        />
+      </svg>
+      <div className="float-card float-top">
+        <span className="icon-tile">
+          <Icon name="calendar" size={22} />
+        </span>
+        <div>
+          <strong>Easy appointments</strong>
+          <small>Choose a convenient time</small>
+        </div>
+      </div>
+      <div className="float-card float-bottom">
+        <span className="icon-tile">
+          <Icon name="heart" size={22} />
+        </span>
+        <div>
+          <strong>Care made personal</strong>
+          <small>One connected journey</small>
+        </div>
+      </div>
+      <span className="visual-caption">Illustrative facility · Demo</span>
+    </div>
+  );
+}
+export function Hero() {
+  return (
+    <section className="hero">
+      <div className="site-container hero-grid">
+        <div className="hero-copy animate-in">
+          <span className="eyebrow">
+            <L en="Your health. Our priority." />
+          </span>
+          <h1>
+            <L en="Care that feels" />
+            <br />
+            <em>
+              <L en="closer to home." />
+            </em>
+          </h1>
+          <p>
+            <L en="A simpler way to find the right doctor, schedule a visit and stay connected to your care — all in one place." />
+          </p>
+          <div className="hero-actions">
+            <Button href={`${portalUrl}/book`} icon="calendar">
+              <L en="Book an appointment" />
+              <Icon name="arrow" size={17} />
+            </Button>
+            <Button href="/doctors" variant="secondary">
+              <L en="Meet our doctors" />
+            </Button>
+          </div>
+          <div className="hero-proof">
+            <span>
+              <Icon name="shield" size={17} />
+              <L en="Privacy-first" />
+            </span>
+            <span>
+              <Icon name="clock" size={17} />
+              <L en="Convenient scheduling" />
+            </span>
+          </div>
+        </div>
+        <div className="animate-in delay-1">
+          <HospitalIllustration />
+        </div>
+      </div>
+    </section>
+  );
+}

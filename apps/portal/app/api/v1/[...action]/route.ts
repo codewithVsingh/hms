@@ -1,63 +1,459 @@
-import { NextRequest,NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { env,scope,sessionClient,rpc,currentUser,staffContext } from '../../../../lib/server/supabase';
-import { createOrder,settle,recoverOrder,signatureValid,digest,sendRefund,checkRefund,paymentConfig } from '../../../../lib/server/razorpay';
+import { env, scope, sessionClient, rpc, currentUser, staffContext } from '../../../../lib/server/supabase';
+import {
+  createOrder,
+  settle,
+  recoverOrder,
+  signatureValid,
+  digest,
+  sendRefund,
+  checkRefund,
+  paymentConfig,
+} from '../../../../lib/server/razorpay';
 import { demoEnabled } from '../../../../lib/config';
-export const runtime='nodejs';export const dynamic='force-dynamic';
-const reply=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{'Cache-Control':'private, no-store'}});
-const uuid=z.string().uuid(),day=z.string().regex(/^\d{4}-\d{2}-\d{2}$/),phone=z.string().regex(/^\+[1-9]\d{7,14}$/),name=z.string().trim().min(2).max(100),token=z.string().min(1).max(4096),idstr=z.string().max(100);
-const notice=()=>env('HMS_NOTICE_VERSION');
-const errors:Record<string,[number,string]>={POLICY_CHANGED:[409,'The cancellation policy changed. Reload and review it.'],AUTH_REQUIRED:[401,'Please sign in again.'],FORBIDDEN:[403,'You do not have access to this operation.'],INVALID_REQUEST:[400,'Please check the submitted details.'],SLOT_UNAVAILABLE:[409,'This slot is no longer available. Choose another time.'],BOOKING_DISABLED:[409,'Online booking is unavailable.'],ONLINE_PAYMENT_DISABLED:[409,'Online payment is unavailable.'],PHONE_VERIFICATION_REQUIRED:[403,'Verify your mobile number first.'],FEE_CHANGED:[409,'The consultation fee has changed. Reload the booking page and review the new fee.'],BOOKING_LIMIT:[429,'Booking limit reached. Contact reception if you need another visit.'],PATIENT_NAME_MISMATCH:[409,'Use the name associated with your verified account or contact reception.'],HOLD_EXPIRED_OR_NOT_PAYABLE:[409,'This appointment is no longer payable.'],ORDER_CREATION_REVIEW:[409,'Order creation is being checked. Do not pay again; contact reception if it persists.'],PAYMENT_PROVIDER_UNAVAILABLE:[503,'Payment provider is temporarily unavailable. Check your booking before trying again.'],PAYMENT_MISMATCH:[409,'Payment needs manual review. Do not pay again.'],ORDER_NOT_FOUND:[404,'Payment order not found.'],NOT_FOUND:[404,'Record not found.'],CONFIGURATION_REQUIRED:[503,'Service is not configured.'],CONTACT_HOSPITAL_FOR_CANCELLATION:[409,'Contact the hospital to cancel this booking and review any payment.'],FORBIDDEN_OR_INVALID_TRANSITION:[409,'This status change is not allowed.'],NOT_PAYABLE:[409,'This invoice cannot be collected.'],INVALID_STATUS:[409,'This appointment cannot be edited in its current state.'],SIGNED_RECORD:[409,'Signed records cannot be edited as drafts.'],OTP_FAILED:[400,'Could not send or verify the code. Check your details or try later.'],LOGIN_FAILED:[401,'Invalid credentials or unavailable account.'],MFA_FAILED:[400,'Authentication code could not be verified.'],CSRF:[403,'Request origin not allowed.'],CONTENT_LOCKED:[409,'Only draft content can be edited.'],SCHEDULE_OVERLAP:[409,'This schedule overlaps an existing schedule.'],REFUND_REVIEW:[409,'Refund is already requested or cannot yet be located. Verify in Razorpay before retrying; do not send a second refund.'],NOT_REFUNDABLE:[409,'This payment is not eligible for an automatic full refund.'],REFUND_MISMATCH:[409,'Refund details do not match the original payment. Contact the payment administrator.']};
-function fail(error:unknown){if(error instanceof z.ZodError)return reply({error:'Please check the submitted details.'},400);const msg=error instanceof Error?error.message:'';const safe=errors[msg]??[500,'Operation could not be completed. Please try again or contact reception.'];return reply({error:safe[1]},safe[0]);}
-function sameOrigin(req:NextRequest){const origin=req.headers.get('origin');const expected=new URL(env('NEXT_PUBLIC_PORTAL_URL')).origin;if(origin!==expected)throw new Error('CSRF');}
-async function body(req:NextRequest){const raw=await req.text();if(raw.length>100000)throw new Error('INVALID_REQUEST');let b:unknown;try{b=JSON.parse(raw);}catch{throw new Error('INVALID_REQUEST');}if(!b||typeof b!=='object'||Array.isArray(b))throw new Error('INVALID_REQUEST');return b as Record<string,unknown>;}
-async function webhook(req:NextRequest){const raw=await req.text();if(raw.length>500000)return reply({error:'Payload too large'},413);const sig=req.headers.get('x-razorpay-signature')||'';if(!signatureValid(raw,sig,env('RAZORPAY_WEBHOOK_SECRET')))return reply({error:'Invalid signature'},401);const eventId=req.headers.get('x-razorpay-event-id');const payload=JSON.parse(raw);if(!['payment.captured','order.paid'].includes(payload.event))return reply({received:true});const p=payload.payload?.payment?.entity;if(!eventId||eventId.length>200||!p?.id||!p?.order_id)return reply({error:'Missing event details'},400);const result=await settle(p.order_id,p.id,null,eventId,digest(raw));if((result as {status?:string}).status==='pending_capture')return reply({error:'Awaiting capture'},503);return reply({received:true});}
-export async function GET(req:NextRequest,{params}:{params:Promise<{action:string[]}>}){try{if(demoEnabled)return reply({error:'Live API disabled in demo mode'},503);const action=(await params).action.join('/'),client=await sessionClient();const q=req.nextUrl.searchParams;
- if(action==='catalog')return reply(await rpc(client,'hms_catalog',scope()));
- if(action==='slots')return reply(await rpc(client,'hms_available_slots',{...scope(),p_doctor:uuid.parse(q.get('doctor')),p_date:day.parse(q.get('date'))}));
- if(action==='bookings'){await currentUser(client);return reply(await rpc(client,'hms_my_bookings',{p_slug:scope().p_slug}));}
- if(action==='auth/session'){const {data}=await client.auth.getUser();return reply({signedIn:!!data.user,phoneVerified:!!data.user?.phone_confirmed_at});}
- const ctx=await staffContext(client);const args={p_org:ctx.organizationId,p_branch:ctx.branchId};
- if(action==='staff/context')return reply(ctx);
- if(action==='staff/appointments')return reply(await rpc(client,'hms_staff_appointments',{...args,p_date:q.has('date')?day.parse(q.get('date')):null}));
- if(action==='staff/patients')return reply(await rpc(client,'hms_staff_patients',{...args,p_search:(q.get('q')||'').slice(0,100)||null}));
- if(action==='staff/slots')return reply(await rpc(client,'hms_staff_slots',{...args,p_date:day.parse(q.get('date'))}));
- if(action==='staff/audit')return reply(await rpc(client,'hms_staff_audit',args));
- if(action==='staff/team')return reply(await rpc(client,'hms_staff_team',args));
- if(action==='staff/refunds')return reply(await rpc(client,'hms_refund_candidates',args));
- if(action==='staff/content')return reply(await rpc(client,'hms_content_list',args));
- if(action==='staff/admin-config')return reply(await rpc(client,'hms_admin_config',args));
- if(action==='staff/clinical')return reply(await rpc(client,'hms_clinical_draft',{p_id:uuid.parse(q.get('id')),p_note:null}));
- return reply({error:'Not found'},404);
- }catch(e){return fail(e);}}
-export async function POST(req:NextRequest,{params}:{params:Promise<{action:string[]}>}){try{if(demoEnabled)return reply({error:'Live API disabled in demo mode'},503);const action=(await params).action.join('/');if(action==='payments/webhook'){try{return await webhook(req);}catch{return reply({error:'Retry processing'},503);}}sameOrigin(req);const b=await body(req),client=await sessionClient();
- if(action==='auth/otp'){const input=z.object({phone,captchaToken:token}).parse(b);const {error}=await client.auth.signInWithOtp({phone:input.phone,options:{captchaToken:input.captchaToken,shouldCreateUser:true}});if(error)throw new Error('OTP_FAILED');return reply({sent:true});}
- if(action==='auth/verify-otp'){const input=z.object({phone,code:z.string().regex(/^\d{6}$/)}).parse(b);const {error}=await client.auth.verifyOtp({phone:input.phone,token:input.code,type:'sms'});if(error)throw new Error('OTP_FAILED');return reply({verified:true});}
- if(action==='auth/login'){const input=z.object({email:z.string().email().max(254),password:z.string().min(1).max(200),captchaToken:token}).parse(b);const {error}=await client.auth.signInWithPassword({email:input.email,password:input.password,options:{captchaToken:input.captchaToken}});if(error)throw new Error('LOGIN_FAILED');return reply({signedIn:true});}
- if(action==='auth/logout'){await client.auth.signOut({scope:'local'});return reply({signedOut:true});}
- if(action==='auth/mfa'){await currentUser(client);const {data,error}=await client.auth.mfa.listFactors();if(error)throw new Error('MFA_FAILED');const verified=data.totp.find(f=>f.status==='verified');if(verified)return reply({factorId:verified.id});for(const f of data.totp.filter(f=>f.status!=='verified'))await client.auth.mfa.unenroll({factorId:f.id});const result=await client.auth.mfa.enroll({factorType:'totp'});if(result.error)throw new Error('MFA_FAILED');return reply({factorId:result.data.id,qr:result.data.totp.qr_code,secret:result.data.totp.secret});}
- if(action==='auth/mfa-verify'){const input=z.object({factorId:uuid,code:z.string().regex(/^\d{6}$/)}).parse(b);await currentUser(client);const {error}=await client.auth.mfa.challengeAndVerify({factorId:input.factorId,code:input.code});if(error)throw new Error('MFA_FAILED');const ctx=await staffContext(client);return reply(ctx);}
- const user=await currentUser(client);
- if(action==='bookings/create'){const input=z.object({slotId:uuid,name,payment:z.enum(['online','hospital']),requestId:uuid,expectedFeePaise:z.number().int().min(0),policyVersion:z.number().int().min(1),adult:z.literal(true),consent:z.literal(true)}).parse(b);return reply(await rpc(client,'hms_v4_book_self',{...scope(),p_slot:input.slotId,p_name:input.name,p_payment:input.payment,p_request:input.requestId,p_notice:notice(),p_adult:input.adult,p_expected_fee:input.expectedFeePaise,p_policy:input.policyVersion}));}
- if(action==='bookings/cancel')return reply({error:'Review the current cancellation quote at Manage booking.'},409);
- if(action==='payments/order')return reply(await createOrder(user.id,uuid.parse(b.appointmentId)));
- if(action==='payments/verify'){const input=z.object({orderId:idstr,paymentId:idstr,signature:z.string().regex(/^[a-f0-9]{64}$/i)}).parse(b);if(!signatureValid(`${input.orderId}|${input.paymentId}`,input.signature,env('RAZORPAY_KEY_SECRET')))throw new Error('PAYMENT_MISMATCH');return reply(await settle(input.orderId,input.paymentId,user.id));}
- if(action==='payments/recover')return reply(await recoverOrder(idstr.parse(b.orderId),user.id));
- const ctx=await staffContext(client);const args={p_org:ctx.organizationId,p_branch:ctx.branchId};
- if(action==='staff/register'){const input=z.object({name,phone:phone.optional(),birthDate:day.optional(),consent:z.literal(true)}).parse(b);return reply(await rpc(client,'hms_staff_register',{...args,p_name:input.name,p_phone:input.phone??null,p_birth:input.birthDate??null,p_notice:notice()}));}
- if(action==='staff/book'){const input=z.object({slotId:uuid,patientId:uuid,requestId:uuid,consent:z.literal(true)}).parse(b);return reply(await rpc(client,'hms_staff_book',{p_slot:input.slotId,p_patient:input.patientId,p_request:input.requestId,p_notice:notice()}));}
- if(action==='staff/status'){const input=z.object({id:uuid,status:z.enum(['checked_in','no_show','in_consultation','completed'])}).parse(b);return reply(await rpc(client,'hms_change_status',{p_id:input.id,p_status:input.status}));}
- if(action==='staff/collect'){const input=z.object({id:uuid,method:z.enum(['cash','upi_offline','card_offline','bank_transfer'])}).parse(b);return reply(await rpc(client,'hms_collect_offline',{p_id:input.id,p_method:input.method}));}
- if(action==='staff/cancel')return reply(await rpc(client,'hms_staff_cancel',{p_id:uuid.parse(b.id)}));
- if(action==='staff/refunds/create'){paymentConfig();const x=z.object({paymentId:uuid,reason:z.enum(['cancelled_visit','late_capture','duplicate_capture','other_review'])}).parse(b);const ref=await rpc<Parameters<typeof sendRefund>[0]>(client,'hms_refund_claim',{p_payment:x.paymentId,p_reason:x.reason});return reply(await sendRefund(ref));}
- if(action==='staff/refunds/check'){const x=z.object({refundId:uuid,providerId:z.string().regex(/^rfnd_[A-Za-z0-9]+$/).optional()}).parse(b);const ref=await rpc<Parameters<typeof checkRefund>[0]>(client,'hms_refund_access',{p_id:x.refundId});return reply(await checkRefund(ref,x.providerId));}
- if(action==='staff/generate')return reply(await rpc(client,'hms_staff_generate',args));
- if(action==='staff/content/save'){const x=z.object({id:uuid.nullable(),kind:z.enum(['page','service','article','faq','landing']),slug:z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/).max(80),title:z.string().trim().min(2).max(160),summary:z.string().max(400),body:z.string().trim().min(1).max(20000),seoTitle:z.string().max(100),seoDescription:z.string().max(200)}).parse(b);return reply(await rpc(client,'hms_content_save',{...args,p_id:x.id,p_kind:x.kind,p_slug:x.slug,p_title:x.title,p_summary:x.summary,p_body:x.body,p_seo_title:x.seoTitle,p_seo_description:x.seoDescription}));}
- if(action==='staff/content/transition'){const x=z.object({id:uuid,status:z.enum(['draft','medical_review','approved','published','archived'])}).parse(b);return reply(await rpc(client,'hms_content_transition',{...args,p_id:x.id,p_status:x.status}));}
- if(action==='staff/settings'){const x=z.object({booking:z.boolean(),online:z.boolean()}).parse(b);if(x.booking){env('HMS_NOTICE_URL');env('HMS_NOTICE_VERSION');}if(x.online){paymentConfig();env('RAZORPAY_WEBHOOK_SECRET');}return reply(await rpc(client,'hms_admin_settings',{...args,p_booking:x.booking,p_online:x.online}));}
- if(action==='staff/doctor-settings'){const x=z.object({id:uuid,feePaise:z.number().int().min(0).max(10000000),published:z.boolean()}).parse(b);return reply(await rpc(client,'hms_admin_doctor',{...args,p_doctor:x.id,p_fee:x.feePaise,p_published:x.published}));}
- if(action==='staff/schedule/add'){const time=z.string().regex(/^\d{2}:\d{2}$/);const x=z.object({doctorId:uuid,weekday:z.number().int().min(0).max(6),start:time,end:time,minutes:z.number().int().min(5).max(180)}).parse(b);return reply(await rpc(client,'hms_admin_add_schedule',{...args,p_doctor:x.doctorId,p_weekday:x.weekday,p_start:x.start,p_end:x.end,p_minutes:x.minutes}));}
- if(action==='staff/schedule/disable')return reply(await rpc(client,'hms_admin_disable_schedule',{...args,p_id:uuid.parse(b.id)}));
- if(action==='staff/clinical'){const input=z.object({id:uuid,note:z.string().trim().min(1).max(12000)}).parse(b);return reply(await rpc(client,'hms_clinical_draft',{p_id:input.id,p_note:input.note}));}
- return reply({error:'Not found'},404);
- }catch(e){return fail(e);}}
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+const reply = (data: unknown, status = 200) =>
+  NextResponse.json(data, { status, headers: { 'Cache-Control': 'private, no-store' } });
+const uuid = z.string().uuid(),
+  day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  phone = z.string().regex(/^\+[1-9]\d{7,14}$/),
+  name = z.string().trim().min(2).max(100),
+  token = z.string().min(1).max(4096),
+  idstr = z.string().max(100);
+const notice = () => env('HMS_NOTICE_VERSION');
+const errors: Record<string, [number, string]> = {
+  POLICY_CHANGED: [409, 'The cancellation policy changed. Reload and review it.'],
+  AUTH_REQUIRED: [401, 'Please sign in again.'],
+  FORBIDDEN: [403, 'You do not have access to this operation.'],
+  INVALID_REQUEST: [400, 'Please check the submitted details.'],
+  SLOT_UNAVAILABLE: [409, 'This slot is no longer available. Choose another time.'],
+  BOOKING_DISABLED: [409, 'Online booking is unavailable.'],
+  ONLINE_PAYMENT_DISABLED: [409, 'Online payment is unavailable.'],
+  PHONE_VERIFICATION_REQUIRED: [403, 'Verify your mobile number first.'],
+  FEE_CHANGED: [409, 'The consultation fee has changed. Reload the booking page and review the new fee.'],
+  BOOKING_LIMIT: [429, 'Booking limit reached. Contact reception if you need another visit.'],
+  PATIENT_NAME_MISMATCH: [409, 'Use the name associated with your verified account or contact reception.'],
+  HOLD_EXPIRED_OR_NOT_PAYABLE: [409, 'This appointment is no longer payable.'],
+  ORDER_CREATION_REVIEW: [
+    409,
+    'Order creation is being checked. Do not pay again; contact reception if it persists.',
+  ],
+  PAYMENT_PROVIDER_UNAVAILABLE: [
+    503,
+    'Payment provider is temporarily unavailable. Check your booking before trying again.',
+  ],
+  PAYMENT_MISMATCH: [409, 'Payment needs manual review. Do not pay again.'],
+  ORDER_NOT_FOUND: [404, 'Payment order not found.'],
+  NOT_FOUND: [404, 'Record not found.'],
+  CONFIGURATION_REQUIRED: [503, 'Service is not configured.'],
+  CONTACT_HOSPITAL_FOR_CANCELLATION: [
+    409,
+    'Contact the hospital to cancel this booking and review any payment.',
+  ],
+  FORBIDDEN_OR_INVALID_TRANSITION: [409, 'This status change is not allowed.'],
+  NOT_PAYABLE: [409, 'This invoice cannot be collected.'],
+  INVALID_STATUS: [409, 'This appointment cannot be edited in its current state.'],
+  SIGNED_RECORD: [409, 'Signed records cannot be edited as drafts.'],
+  OTP_FAILED: [400, 'Could not send or verify the code. Check your details or try later.'],
+  LOGIN_FAILED: [401, 'Invalid credentials or unavailable account.'],
+  MFA_FAILED: [400, 'Authentication code could not be verified.'],
+  CSRF: [403, 'Request origin not allowed.'],
+  CONTENT_LOCKED: [409, 'Only draft content can be edited.'],
+  SCHEDULE_OVERLAP: [409, 'This schedule overlaps an existing schedule.'],
+  REFUND_REVIEW: [
+    409,
+    'Refund is already requested or cannot yet be located. Verify in Razorpay before retrying; do not send a second refund.',
+  ],
+  NOT_REFUNDABLE: [409, 'This payment is not eligible for an automatic full refund.'],
+  REFUND_MISMATCH: [
+    409,
+    'Refund details do not match the original payment. Contact the payment administrator.',
+  ],
+};
+function fail(error: unknown) {
+  if (error instanceof z.ZodError) return reply({ error: 'Please check the submitted details.' }, 400);
+  const msg = error instanceof Error ? error.message : '';
+  const safe = errors[msg] ?? [
+    500,
+    'Operation could not be completed. Please try again or contact reception.',
+  ];
+  return reply({ error: safe[1] }, safe[0]);
+}
+function sameOrigin(req: NextRequest) {
+  const origin = req.headers.get('origin');
+  const expected = new URL(env('NEXT_PUBLIC_PORTAL_URL')).origin;
+  if (origin !== expected) throw new Error('CSRF');
+}
+async function body(req: NextRequest) {
+  const raw = await req.text();
+  if (raw.length > 100000) throw new Error('INVALID_REQUEST');
+  let b: unknown;
+  try {
+    b = JSON.parse(raw);
+  } catch {
+    throw new Error('INVALID_REQUEST');
+  }
+  if (!b || typeof b !== 'object' || Array.isArray(b)) throw new Error('INVALID_REQUEST');
+  return b as Record<string, unknown>;
+}
+async function webhook(req: NextRequest) {
+  const raw = await req.text();
+  if (raw.length > 500000) return reply({ error: 'Payload too large' }, 413);
+  const sig = req.headers.get('x-razorpay-signature') || '';
+  if (!signatureValid(raw, sig, env('RAZORPAY_WEBHOOK_SECRET')))
+    return reply({ error: 'Invalid signature' }, 401);
+  const eventId = req.headers.get('x-razorpay-event-id');
+  const payload = JSON.parse(raw);
+  if (!['payment.captured', 'order.paid'].includes(payload.event)) return reply({ received: true });
+  const p = payload.payload?.payment?.entity;
+  if (!eventId || eventId.length > 200 || !p?.id || !p?.order_id)
+    return reply({ error: 'Missing event details' }, 400);
+  const result = await settle(p.order_id, p.id, null, eventId, digest(raw));
+  if ((result as { status?: string }).status === 'pending_capture')
+    return reply({ error: 'Awaiting capture' }, 503);
+  return reply({ received: true });
+}
+export async function GET(req: NextRequest, { params }: { params: Promise<{ action: string[] }> }) {
+  try {
+    if (demoEnabled) return reply({ error: 'Live API disabled in demo mode' }, 503);
+    const action = (await params).action.join('/'),
+      client = await sessionClient();
+    const q = req.nextUrl.searchParams;
+    if (action === 'catalog') return reply(await rpc(client, 'hms_catalog', scope()));
+    if (action === 'slots')
+      return reply(
+        await rpc(client, 'hms_available_slots', {
+          ...scope(),
+          p_doctor: uuid.parse(q.get('doctor')),
+          p_date: day.parse(q.get('date')),
+        }),
+      );
+    if (action === 'bookings') {
+      await currentUser(client);
+      return reply(await rpc(client, 'hms_my_bookings', { p_slug: scope().p_slug }));
+    }
+    if (action === 'auth/session') {
+      const { data } = await client.auth.getUser();
+      return reply({ signedIn: !!data.user, phoneVerified: !!data.user?.phone_confirmed_at });
+    }
+    const ctx = await staffContext(client);
+    const args = { p_org: ctx.organizationId, p_branch: ctx.branchId };
+    if (action === 'staff/context') return reply(ctx);
+    if (action === 'staff/appointments')
+      return reply(
+        await rpc(client, 'hms_staff_appointments', {
+          ...args,
+          p_date: q.has('date') ? day.parse(q.get('date')) : null,
+        }),
+      );
+    if (action === 'staff/patients')
+      return reply(
+        await rpc(client, 'hms_staff_patients', {
+          ...args,
+          p_search: (q.get('q') || '').slice(0, 100) || null,
+        }),
+      );
+    if (action === 'staff/slots')
+      return reply(await rpc(client, 'hms_staff_slots', { ...args, p_date: day.parse(q.get('date')) }));
+    if (action === 'staff/audit') return reply(await rpc(client, 'hms_staff_audit', args));
+    if (action === 'staff/team') return reply(await rpc(client, 'hms_staff_team', args));
+    if (action === 'staff/refunds') return reply(await rpc(client, 'hms_refund_candidates', args));
+    if (action === 'staff/content') return reply(await rpc(client, 'hms_content_list', args));
+    if (action === 'staff/admin-config') return reply(await rpc(client, 'hms_admin_config', args));
+    if (action === 'staff/clinical')
+      return reply(await rpc(client, 'hms_clinical_draft', { p_id: uuid.parse(q.get('id')), p_note: null }));
+    return reply({ error: 'Not found' }, 404);
+  } catch (e) {
+    return fail(e);
+  }
+}
+export async function POST(req: NextRequest, { params }: { params: Promise<{ action: string[] }> }) {
+  try {
+    if (demoEnabled) return reply({ error: 'Live API disabled in demo mode' }, 503);
+    const action = (await params).action.join('/');
+    if (action === 'payments/webhook') {
+      try {
+        return await webhook(req);
+      } catch {
+        return reply({ error: 'Retry processing' }, 503);
+      }
+    }
+    sameOrigin(req);
+    const b = await body(req),
+      client = await sessionClient();
+    if (action === 'auth/otp') {
+      const input = z.object({ phone, captchaToken: token }).parse(b);
+      const { error } = await client.auth.signInWithOtp({
+        phone: input.phone,
+        options: { captchaToken: input.captchaToken, shouldCreateUser: true },
+      });
+      if (error) throw new Error('OTP_FAILED');
+      return reply({ sent: true });
+    }
+    if (action === 'auth/verify-otp') {
+      const input = z.object({ phone, code: z.string().regex(/^\d{6}$/) }).parse(b);
+      const { error } = await client.auth.verifyOtp({ phone: input.phone, token: input.code, type: 'sms' });
+      if (error) throw new Error('OTP_FAILED');
+      return reply({ verified: true });
+    }
+    if (action === 'auth/login') {
+      const input = z
+        .object({
+          email: z.string().email().max(254),
+          password: z.string().min(1).max(200),
+          captchaToken: token,
+        })
+        .parse(b);
+      const { error } = await client.auth.signInWithPassword({
+        email: input.email,
+        password: input.password,
+        options: { captchaToken: input.captchaToken },
+      });
+      if (error) throw new Error('LOGIN_FAILED');
+      return reply({ signedIn: true });
+    }
+    if (action === 'auth/logout') {
+      await client.auth.signOut({ scope: 'local' });
+      return reply({ signedOut: true });
+    }
+    if (action === 'auth/mfa') {
+      await currentUser(client);
+      const { data, error } = await client.auth.mfa.listFactors();
+      if (error) throw new Error('MFA_FAILED');
+      const verified = data.totp.find((f) => f.status === 'verified');
+      if (verified) return reply({ factorId: verified.id });
+      for (const f of data.totp.filter((f) => f.status !== 'verified'))
+        await client.auth.mfa.unenroll({ factorId: f.id });
+      const result = await client.auth.mfa.enroll({ factorType: 'totp' });
+      if (result.error) throw new Error('MFA_FAILED');
+      return reply({
+        factorId: result.data.id,
+        qr: result.data.totp.qr_code,
+        secret: result.data.totp.secret,
+      });
+    }
+    if (action === 'auth/mfa-verify') {
+      const input = z.object({ factorId: uuid, code: z.string().regex(/^\d{6}$/) }).parse(b);
+      await currentUser(client);
+      const { error } = await client.auth.mfa.challengeAndVerify({
+        factorId: input.factorId,
+        code: input.code,
+      });
+      if (error) throw new Error('MFA_FAILED');
+      const ctx = await staffContext(client);
+      return reply(ctx);
+    }
+    const user = await currentUser(client);
+    if (action === 'bookings/create') {
+      const input = z
+        .object({
+          slotId: uuid,
+          name,
+          payment: z.enum(['online', 'hospital']),
+          requestId: uuid,
+          expectedFeePaise: z.number().int().min(0),
+          policyVersion: z.number().int().min(1),
+          adult: z.literal(true),
+          consent: z.literal(true),
+        })
+        .parse(b);
+      return reply(
+        await rpc(client, 'hms_v4_book_self', {
+          ...scope(),
+          p_slot: input.slotId,
+          p_name: input.name,
+          p_payment: input.payment,
+          p_request: input.requestId,
+          p_notice: notice(),
+          p_adult: input.adult,
+          p_expected_fee: input.expectedFeePaise,
+          p_policy: input.policyVersion,
+        }),
+      );
+    }
+    if (action === 'bookings/cancel')
+      return reply({ error: 'Review the current cancellation quote at Manage booking.' }, 409);
+    if (action === 'payments/order') return reply(await createOrder(user.id, uuid.parse(b.appointmentId)));
+    if (action === 'payments/verify') {
+      const input = z
+        .object({ orderId: idstr, paymentId: idstr, signature: z.string().regex(/^[a-f0-9]{64}$/i) })
+        .parse(b);
+      if (!signatureValid(`${input.orderId}|${input.paymentId}`, input.signature, env('RAZORPAY_KEY_SECRET')))
+        throw new Error('PAYMENT_MISMATCH');
+      return reply(await settle(input.orderId, input.paymentId, user.id));
+    }
+    if (action === 'payments/recover') return reply(await recoverOrder(idstr.parse(b.orderId), user.id));
+    const ctx = await staffContext(client);
+    const args = { p_org: ctx.organizationId, p_branch: ctx.branchId };
+    if (action === 'staff/register') {
+      const input = z
+        .object({ name, phone: phone.optional(), birthDate: day.optional(), consent: z.literal(true) })
+        .parse(b);
+      return reply(
+        await rpc(client, 'hms_staff_register', {
+          ...args,
+          p_name: input.name,
+          p_phone: input.phone ?? null,
+          p_birth: input.birthDate ?? null,
+          p_notice: notice(),
+        }),
+      );
+    }
+    if (action === 'staff/book') {
+      const input = z
+        .object({ slotId: uuid, patientId: uuid, requestId: uuid, consent: z.literal(true) })
+        .parse(b);
+      return reply(
+        await rpc(client, 'hms_staff_book', {
+          p_slot: input.slotId,
+          p_patient: input.patientId,
+          p_request: input.requestId,
+          p_notice: notice(),
+        }),
+      );
+    }
+    if (action === 'staff/status') {
+      const input = z
+        .object({ id: uuid, status: z.enum(['checked_in', 'no_show', 'in_consultation', 'completed']) })
+        .parse(b);
+      return reply(await rpc(client, 'hms_change_status', { p_id: input.id, p_status: input.status }));
+    }
+    if (action === 'staff/collect') {
+      const input = z
+        .object({ id: uuid, method: z.enum(['cash', 'upi_offline', 'card_offline', 'bank_transfer']) })
+        .parse(b);
+      return reply(await rpc(client, 'hms_collect_offline', { p_id: input.id, p_method: input.method }));
+    }
+    if (action === 'staff/cancel')
+      return reply(await rpc(client, 'hms_staff_cancel', { p_id: uuid.parse(b.id) }));
+    if (action === 'staff/refunds/create') {
+      paymentConfig();
+      const x = z
+        .object({
+          paymentId: uuid,
+          reason: z.enum(['cancelled_visit', 'late_capture', 'duplicate_capture', 'other_review']),
+        })
+        .parse(b);
+      const ref = await rpc<Parameters<typeof sendRefund>[0]>(client, 'hms_refund_claim', {
+        p_payment: x.paymentId,
+        p_reason: x.reason,
+      });
+      return reply(await sendRefund(ref));
+    }
+    if (action === 'staff/refunds/check') {
+      const x = z
+        .object({
+          refundId: uuid,
+          providerId: z
+            .string()
+            .regex(/^rfnd_[A-Za-z0-9]+$/)
+            .optional(),
+        })
+        .parse(b);
+      const ref = await rpc<Parameters<typeof checkRefund>[0]>(client, 'hms_refund_access', {
+        p_id: x.refundId,
+      });
+      return reply(await checkRefund(ref, x.providerId));
+    }
+    if (action === 'staff/generate') return reply(await rpc(client, 'hms_staff_generate', args));
+    if (action === 'staff/content/save') {
+      const x = z
+        .object({
+          id: uuid.nullable(),
+          kind: z.enum(['page', 'service', 'article', 'faq', 'landing']),
+          slug: z
+            .string()
+            .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)
+            .max(80),
+          title: z.string().trim().min(2).max(160),
+          summary: z.string().max(400),
+          body: z.string().trim().min(1).max(20000),
+          seoTitle: z.string().max(100),
+          seoDescription: z.string().max(200),
+        })
+        .parse(b);
+      return reply(
+        await rpc(client, 'hms_content_save', {
+          ...args,
+          p_id: x.id,
+          p_kind: x.kind,
+          p_slug: x.slug,
+          p_title: x.title,
+          p_summary: x.summary,
+          p_body: x.body,
+          p_seo_title: x.seoTitle,
+          p_seo_description: x.seoDescription,
+        }),
+      );
+    }
+    if (action === 'staff/content/transition') {
+      const x = z
+        .object({
+          id: uuid,
+          status: z.enum(['draft', 'medical_review', 'approved', 'published', 'archived']),
+        })
+        .parse(b);
+      return reply(await rpc(client, 'hms_content_transition', { ...args, p_id: x.id, p_status: x.status }));
+    }
+    if (action === 'staff/settings') {
+      const x = z.object({ booking: z.boolean(), online: z.boolean() }).parse(b);
+      if (x.booking) {
+        env('HMS_NOTICE_URL');
+        env('HMS_NOTICE_VERSION');
+      }
+      if (x.online) {
+        paymentConfig();
+        env('RAZORPAY_WEBHOOK_SECRET');
+      }
+      return reply(
+        await rpc(client, 'hms_admin_settings', { ...args, p_booking: x.booking, p_online: x.online }),
+      );
+    }
+    if (action === 'staff/doctor-settings') {
+      const x = z
+        .object({ id: uuid, feePaise: z.number().int().min(0).max(10000000), published: z.boolean() })
+        .parse(b);
+      return reply(
+        await rpc(client, 'hms_admin_doctor', {
+          ...args,
+          p_doctor: x.id,
+          p_fee: x.feePaise,
+          p_published: x.published,
+        }),
+      );
+    }
+    if (action === 'staff/schedule/add') {
+      const time = z.string().regex(/^\d{2}:\d{2}$/);
+      const x = z
+        .object({
+          doctorId: uuid,
+          weekday: z.number().int().min(0).max(6),
+          start: time,
+          end: time,
+          minutes: z.number().int().min(5).max(180),
+        })
+        .parse(b);
+      return reply(
+        await rpc(client, 'hms_admin_add_schedule', {
+          ...args,
+          p_doctor: x.doctorId,
+          p_weekday: x.weekday,
+          p_start: x.start,
+          p_end: x.end,
+          p_minutes: x.minutes,
+        }),
+      );
+    }
+    if (action === 'staff/schedule/disable')
+      return reply(await rpc(client, 'hms_admin_disable_schedule', { ...args, p_id: uuid.parse(b.id) }));
+    if (action === 'staff/clinical') {
+      const input = z.object({ id: uuid, note: z.string().trim().min(1).max(12000) }).parse(b);
+      return reply(await rpc(client, 'hms_clinical_draft', { p_id: input.id, p_note: input.note }));
+    }
+    return reply({ error: 'Not found' }, 404);
+  } catch (e) {
+    return fail(e);
+  }
+}

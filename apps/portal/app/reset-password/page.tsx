@@ -1,1 +1,5 @@
-import {Recovery} from '../../features/live/recovery';import {demoEnabled} from '../../lib/config';export default function Page(){return <Recovery reset demo={demoEnabled}/>}
+import { Recovery } from '../../features/live/recovery';
+import { demoEnabled } from '../../lib/config';
+export default function Page() {
+  return <Recovery reset demo={demoEnabled} />;
+}

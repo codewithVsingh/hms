@@ -1,6 +1,52 @@
 'use client';
-import {useEffect,useRef,useState} from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Script from 'next/script';
-type Turnstile={render:(el:HTMLElement,options:{sitekey:string;callback:(token:string)=>void;'expired-callback':()=>void;'error-callback':()=>void})=>string;remove:(id:string)=>void;reset:(id:string)=>void};
-function instance(){return (window as unknown as {turnstile?:Turnstile}).turnstile;}
-export function Captcha({onToken,resetKey=0}:{onToken:(token:string)=>void;resetKey?:number}){const el=useRef<HTMLDivElement>(null),callback=useRef(onToken);const [ready,setReady]=useState(false);useEffect(()=>{callback.current=onToken;},[onToken]);const sitekey=process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;useEffect(()=>{if(!ready||!sitekey||!el.current||!instance())return;const id=instance()!.render(el.current,{sitekey,callback:t=>callback.current(t),'expired-callback':()=>callback.current(''),'error-callback':()=>callback.current('')});return ()=>{instance()?.remove(id);};},[ready,sitekey,resetKey]);return sitekey?<><Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="afterInteractive" onReady={()=>setReady(true)}/><div ref={el} className="captcha-wrap" aria-label="Security verification"/></>:<p className="form-error">Security verification is not configured. Contact the administrator.</p>;}
+type Turnstile = {
+  render: (
+    el: HTMLElement,
+    options: {
+      sitekey: string;
+      callback: (token: string) => void;
+      'expired-callback': () => void;
+      'error-callback': () => void;
+    },
+  ) => string;
+  remove: (id: string) => void;
+  reset: (id: string) => void;
+};
+function instance() {
+  return (window as unknown as { turnstile?: Turnstile }).turnstile;
+}
+export function Captcha({ onToken, resetKey = 0 }: { onToken: (token: string) => void; resetKey?: number }) {
+  const el = useRef<HTMLDivElement>(null),
+    callback = useRef(onToken);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    callback.current = onToken;
+  }, [onToken]);
+  const sitekey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  useEffect(() => {
+    if (!ready || !sitekey || !el.current || !instance()) return;
+    const id = instance()!.render(el.current, {
+      sitekey,
+      callback: (t) => callback.current(t),
+      'expired-callback': () => callback.current(''),
+      'error-callback': () => callback.current(''),
+    });
+    return () => {
+      instance()?.remove(id);
+    };
+  }, [ready, sitekey, resetKey]);
+  return sitekey ? (
+    <>
+      <Script
+        src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+        strategy="afterInteractive"
+        onReady={() => setReady(true)}
+      />
+      <div ref={el} className="captcha-wrap" aria-label="Security verification" />
+    </>
+  ) : (
+    <p className="form-error">Security verification is not configured. Contact the administrator.</p>
+  );
+}

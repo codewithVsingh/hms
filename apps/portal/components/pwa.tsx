@@ -1,5 +1,81 @@
 'use client';
-import {L} from '@hms/ui';
-import {useEffect,useState} from 'react';
-type InstallEvent=Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:string}>};
-export function PortalPWA(){const [prompt,setPrompt]=useState<InstallEvent|null>(null),[standalone,setStandalone]=useState(false),[offline,setOffline]=useState(false),[help,setHelp]=useState(false);useEffect(()=>{const installed=()=>setStandalone(window.matchMedia('(display-mode: standalone)').matches||!!(navigator as Navigator&{standalone?:boolean}).standalone);const online=()=>setOffline(!navigator.onLine);const before=(e:Event)=>{e.preventDefault();setPrompt(e as InstallEvent)};const done=()=>{setStandalone(true);setPrompt(null);setHelp(false)};installed();online();window.addEventListener('beforeinstallprompt',before);window.addEventListener('appinstalled',done);window.addEventListener('online',online);window.addEventListener('offline',online);if('serviceWorker'in navigator&&window.isSecureContext)void navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{});return()=>{window.removeEventListener('beforeinstallprompt',before);window.removeEventListener('appinstalled',done);window.removeEventListener('online',online);window.removeEventListener('offline',online)};},[]);return <><div className="pwa-strip"><span><L en={offline?'Offline · reconnect before making changes':standalone?'HMS app · connected':'Secure HMS workspace'}/></span>{!standalone&&<button type="button" onClick={async()=>{if(prompt){await prompt.prompt();await prompt.userChoice;setPrompt(null)}else setHelp(v=>!v)}}>Install app</button>}</div>{help&&<div className="pwa-help" role="status"><strong>Install on your device</strong><p><L en="Android / desktop: use the browser menu and select Install app or Add to Home screen if available. iPhone / iPad: in Safari, tap Share, then Add to Home Screen. The public hospital website remains a normal website."/></p><button onClick={()=>setHelp(false)}>Close</button></div>}</>}
+import { L } from '@hms/ui';
+import { useEffect, useState } from 'react';
+type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
+export function PortalPWA() {
+  const [prompt, setPrompt] = useState<InstallEvent | null>(null),
+    [standalone, setStandalone] = useState(false),
+    [offline, setOffline] = useState(false),
+    [help, setHelp] = useState(false);
+  useEffect(() => {
+    const installed = () =>
+      setStandalone(
+        window.matchMedia('(display-mode: standalone)').matches ||
+          !!(navigator as Navigator & { standalone?: boolean }).standalone,
+      );
+    const online = () => setOffline(!navigator.onLine);
+    const before = (e: Event) => {
+      e.preventDefault();
+      setPrompt(e as InstallEvent);
+    };
+    const done = () => {
+      setStandalone(true);
+      setPrompt(null);
+      setHelp(false);
+    };
+    installed();
+    online();
+    window.addEventListener('beforeinstallprompt', before);
+    window.addEventListener('appinstalled', done);
+    window.addEventListener('online', online);
+    window.addEventListener('offline', online);
+    if ('serviceWorker' in navigator && window.isSecureContext)
+      void navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+    return () => {
+      window.removeEventListener('beforeinstallprompt', before);
+      window.removeEventListener('appinstalled', done);
+      window.removeEventListener('online', online);
+      window.removeEventListener('offline', online);
+    };
+  }, []);
+  return (
+    <>
+      <div className="pwa-strip">
+        <span>
+          <L
+            en={
+              offline
+                ? 'Offline · reconnect before making changes'
+                : standalone
+                  ? 'HMS app · connected'
+                  : 'Secure HMS workspace'
+            }
+          />
+        </span>
+        {!standalone && (
+          <button
+            type="button"
+            onClick={async () => {
+              if (prompt) {
+                await prompt.prompt();
+                await prompt.userChoice;
+                setPrompt(null);
+              } else setHelp((v) => !v);
+            }}
+          >
+            Install app
+          </button>
+        )}
+      </div>
+      {help && (
+        <div className="pwa-help" role="status">
+          <strong>Install on your device</strong>
+          <p>
+            <L en="Android / desktop: use the browser menu and select Install app or Add to Home screen if available. iPhone / iPad: in Safari, tap Share, then Add to Home Screen. The public hospital website remains a normal website." />
+          </p>
+          <button onClick={() => setHelp(false)}>Close</button>
+        </div>
+      )}
+    </>
+  );
+}

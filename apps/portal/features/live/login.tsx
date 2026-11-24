@@ -1,9 +1,164 @@
 'use client';
-import {useState} from 'react';
-import {Brand,Button,Field,Notice,Icon,L} from '@hms/ui';
-import {api,message} from './client';
-import {Captcha} from './captcha';
-export function LiveLogin({websiteUrl}:{websiteUrl:string}){const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[code,setCode]=useState(''),[captcha,setCaptcha]=useState(''),[reset,setReset]=useState(0),[factor,setFactor]=useState<{factorId:string;secret?:string;qr?:string}|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
- async function submit(){setBusy(true);setError('');try{if(!factor){await api('auth/login',{email,password,captchaToken:captcha});setPassword('');setFactor(await api('auth/mfa',{}));}else{const context=await api<{roles:string[]}>('auth/mfa-verify',{factorId:factor.factorId,code});window.location.replace(context.roles.includes('super_admin')?'/admin':context.roles.includes('doctor')?'/doctor':'/staff');}}catch(e){setError(message(e));}finally{setBusy(false);setCaptcha('');setReset(v=>v+1);}}
- return <main id="main" className="login-shell"><div className="login-art"><Brand name={process.env.NEXT_PUBLIC_HOSPITAL_NAME||"Hospital"} href={websiteUrl} sub="Hospital management"/><div className="login-message"><span className="eyebrow"><L en="Secure workforce portal"/></span><h1><L en="Better care starts with a better workflow."/></h1><p><L en="Sign in with your hospital-issued account. Access is determined by your assigned role and branch."/></p><div className="glass-tile"><Icon name="shield" size={30}/><span><L en="Private and permission-controlled workspace"/></span></div></div><small><L en="For authorized hospital personnel only"/></small></div><div className="login-form-wrap"><form className="login-form stack" onSubmit={e=>{e.preventDefault();void submit();}}><Brand name={process.env.NEXT_PUBLIC_HOSPITAL_NAME||"Hospital"} href={websiteUrl}/><h2>{factor?'Verify your identity':'Welcome back.'}</h2>{!factor?<><Field label="Work email"><input type="email" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)}/></Field><Field label="Password"><input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)}/></Field><Captcha onToken={setCaptcha} resetKey={reset}/></>:<>{factor.secret&&<Notice>First-time MFA setup: in an authenticator app, add a time-based account using this setup key. Keep it private. <code className="setup-secret">{factor.secret}</code></Notice>}<Field label="6-digit authenticator code"><input required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={e=>setCode(e.target.value)}/></Field></>}{error&&<div role="alert" className="form-error">{error}</div>}<Button type="submit" disabled={busy||(!factor&&!captcha)||(!!factor&&code.length!==6)}>{busy?'Please wait…':factor?'Verify & sign in':'Sign in'}</Button>{factor&&<Button variant="secondary" disabled={busy} onClick={async()=>{await api('auth/logout',{}).catch(()=>{});window.location.reload();}}><L en="Start again"/></Button>}<div className="login-foot"><a href="/book"><L en="Patient appointment booking"/></a><a href={websiteUrl}><L en="Return to website"/></a></div><a href="/forgot-password"><L en="Forgot your password?"/></a><Notice><L en="Accounts are provisioned by the hospital."/></Notice></form></div></main>;
+import { useState } from 'react';
+import { Brand, Button, Field, Notice, Icon, L } from '@hms/ui';
+import { api, message } from './client';
+import { Captcha } from './captcha';
+export function LiveLogin({ websiteUrl }: { websiteUrl: string }) {
+  const [email, setEmail] = useState(''),
+    [password, setPassword] = useState(''),
+    [code, setCode] = useState(''),
+    [captcha, setCaptcha] = useState(''),
+    [reset, setReset] = useState(0),
+    [factor, setFactor] = useState<{ factorId: string; secret?: string; qr?: string } | null>(null),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState('');
+  async function submit() {
+    setBusy(true);
+    setError('');
+    try {
+      if (!factor) {
+        await api('auth/login', { email, password, captchaToken: captcha });
+        setPassword('');
+        setFactor(await api('auth/mfa', {}));
+      } else {
+        const context = await api<{ roles: string[] }>('auth/mfa-verify', {
+          factorId: factor.factorId,
+          code,
+        });
+        window.location.replace(
+          context.roles.includes('super_admin')
+            ? '/admin'
+            : context.roles.includes('doctor')
+              ? '/doctor'
+              : '/staff',
+        );
+      }
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+      setCaptcha('');
+      setReset((v) => v + 1);
+    }
+  }
+  return (
+    <main id="main" className="login-shell">
+      <div className="login-art">
+        <Brand
+          name={process.env.NEXT_PUBLIC_HOSPITAL_NAME || 'Hospital'}
+          href={websiteUrl}
+          sub="Hospital management"
+        />
+        <div className="login-message">
+          <span className="eyebrow">
+            <L en="Secure workforce portal" />
+          </span>
+          <h1>
+            <L en="Better care starts with a better workflow." />
+          </h1>
+          <p>
+            <L en="Sign in with your hospital-issued account. Access is determined by your assigned role and branch." />
+          </p>
+          <div className="glass-tile">
+            <Icon name="shield" size={30} />
+            <span>
+              <L en="Private and permission-controlled workspace" />
+            </span>
+          </div>
+        </div>
+        <small>
+          <L en="For authorized hospital personnel only" />
+        </small>
+      </div>
+      <div className="login-form-wrap">
+        <form
+          className="login-form stack"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+        >
+          <Brand name={process.env.NEXT_PUBLIC_HOSPITAL_NAME || 'Hospital'} href={websiteUrl} />
+          <h2>{factor ? 'Verify your identity' : 'Welcome back.'}</h2>
+          {!factor ? (
+            <>
+              <Field label="Work email">
+                <input
+                  type="email"
+                  autoComplete="username"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </Field>
+              <Field label="Password">
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </Field>
+              <Captcha onToken={setCaptcha} resetKey={reset} />
+            </>
+          ) : (
+            <>
+              {factor.secret && (
+                <Notice>
+                  First-time MFA setup: in an authenticator app, add a time-based account using this setup
+                  key. Keep it private. <code className="setup-secret">{factor.secret}</code>
+                </Notice>
+              )}
+              <Field label="6-digit authenticator code">
+                <input
+                  required
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                />
+              </Field>
+            </>
+          )}
+          {error && (
+            <div role="alert" className="form-error">
+              {error}
+            </div>
+          )}
+          <Button type="submit" disabled={busy || (!factor && !captcha) || (!!factor && code.length !== 6)}>
+            {busy ? 'Please wait…' : factor ? 'Verify & sign in' : 'Sign in'}
+          </Button>
+          {factor && (
+            <Button
+              variant="secondary"
+              disabled={busy}
+              onClick={async () => {
+                await api('auth/logout', {}).catch(() => {});
+                window.location.reload();
+              }}
+            >
+              <L en="Start again" />
+            </Button>
+          )}
+          <div className="login-foot">
+            <a href="/book">
+              <L en="Patient appointment booking" />
+            </a>
+            <a href={websiteUrl}>
+              <L en="Return to website" />
+            </a>
+          </div>
+          <a href="/forgot-password">
+            <L en="Forgot your password?" />
+          </a>
+          <Notice>
+            <L en="Accounts are provisioned by the hospital." />
+          </Notice>
+        </form>
+      </div>
+    </main>
+  );
 }

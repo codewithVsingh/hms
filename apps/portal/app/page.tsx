@@ -1,2 +1,4 @@
 import { redirect } from 'next/navigation';
-export default function PortalHome(){redirect('/login');}
+export default function PortalHome() {
+  redirect('/login');
+}
