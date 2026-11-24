@@ -1,7 +1,7 @@
 'use client';
 import * as React from 'react';
 import { doctors } from '@hms/types';
-import { Brand, Button, Icon, Badge, Notice, Avatar, Field, L } from '@hms/ui';
+import { Brand, Button, Icon, Badge, Notice, Avatar, Field, L, T, When, useT } from '@hms/ui';
 import { dateKey, formatINR, isDemoName } from '@hms/validation';
 const steps = ['Doctor & time', 'Demo details', 'Review & payment', 'Confirmation'];
 const slots = [
@@ -15,6 +15,10 @@ const slots = [
   '02:30 PM',
   '03:00 PM',
 ];
+// Day keys are local calendar dates; noon IST keeps the weekday stable when formatted in Asia/Kolkata.
+const noonIST = (key: string) => `${key}T12:00:00+05:30`;
+const fullDay: Intl.DateTimeFormatOptions = { weekday: 'short', day: 'numeric', month: 'short' };
+const shortDay: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
 const sampleDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 function makeDays() {
   const now = new Date();
@@ -41,7 +45,13 @@ type BookingState = {
   error: string;
   days: ReturnType<typeof makeDays>;
 };
-export class Booking extends React.Component<{ websiteUrl: string; initialDoctor?: string }, BookingState> {
+type BookingProps = { websiteUrl: string; initialDoctor?: string };
+/** Supplies the translator to the class component, which cannot call hooks itself. */
+export function Booking(props: BookingProps) {
+  const tx = useT();
+  return <DemoBooking {...props} tx={tx} />;
+}
+class DemoBooking extends React.Component<BookingProps & { tx: (en: string) => string }, BookingState> {
   state: BookingState = {
     step: 0,
     doctor: doctors.some((d) => d.slug === this.props.initialDoctor)
@@ -122,7 +132,7 @@ export class Booking extends React.Component<{ websiteUrl: string; initialDoctor
           <Notice tone="warning">
             <L en="Preview only. No real appointments, patient details or charges are created." />
           </Notice>
-          <ol className="booking-steps" aria-label="Booking progress">
+          <ol className="booking-steps" aria-label={this.props.tx('Booking progress')}>
             {steps.map((label, i) => (
               <li
                 key={label}
@@ -198,9 +208,13 @@ export class Booking extends React.Component<{ websiteUrl: string; initialDoctor
                         aria-pressed={s.day === day.key}
                         onClick={() => this.setState({ day: day.key, time: '', error: '' })}
                       >
-                        <span>{day.day}</span>
+                        <span>
+                          <When iso={noonIST(day.key)} format={{ weekday: 'short' }} />
+                        </span>
                         <strong>{day.dayNum}</strong>
-                        <span>{day.month}</span>
+                        <span>
+                          <When iso={noonIST(day.key)} format={{ month: 'short' }} />
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -228,7 +242,7 @@ export class Booking extends React.Component<{ websiteUrl: string; initialDoctor
                     </div>
                   )}
                   <p className="text-sm muted" style={{ marginTop: 9 }}>
-                    Unavailable slots are disabled in the preview.
+                    <L en={'Unavailable slots are disabled in the preview.'} />
                   </p>
                 </>
               )}
@@ -243,14 +257,14 @@ export class Booking extends React.Component<{ websiteUrl: string; initialDoctor
                     </Field>
                     <Field label="Age group">
                       <select defaultValue="adult">
-                        <option value="adult">Adult (sample)</option>
-                        <option value="child">Child (sample)</option>
+                        <option value="adult">{this.props.tx('Adult (sample)')}</option>
+                        <option value="child">{this.props.tx('Child (sample)')}</option>
                       </select>
                     </Field>
                     <Field label="Visit type">
                       <select>
-                        <option>First visit</option>
-                        <option>Follow-up visit</option>
+                        <option value="First visit">{this.props.tx('First visit')}</option>
+                        <option value="Follow-up visit">{this.props.tx('Follow-up visit')}</option>
                       </select>
                     </Field>
                   </div>
@@ -275,9 +289,11 @@ export class Booking extends React.Component<{ websiteUrl: string; initialDoctor
                     <strong>{s.name}</strong>
                   </div>
                   <div className="review-row">
-                    <span>Appointment</span>
+                    <span>
+                      <L en={'Appointment'} />
+                    </span>
                     <strong>
-                      {selectedDate?.day}, {selectedDate?.dayNum} {selectedDate?.month} · {s.time}
+                      <When iso={selectedDate && noonIST(selectedDate.key)} format={fullDay} /> · {s.time}
                     </strong>
                   </div>
                   <div className="review-row">
@@ -341,13 +357,14 @@ export class Booking extends React.Component<{ websiteUrl: string; initialDoctor
                   </Badge>
                   <h3>{s.reference}</h3>
                   <p>
-                    <L en="Patient number" />: PT-000127
+                    <T en={'{0}: PT-000127'} values={[<L key="v0" en="Patient number" />]} />
                   </p>
                   <Button href="/manage-booking" variant="secondary">
                     <L en="Manage booking" />
                   </Button>
                   <p>
-                    {d.name} · {selectedDate?.dayNum} {selectedDate?.month} · {s.time}
+                    {d.name} · <When iso={selectedDate && noonIST(selectedDate.key)} format={shortDay} /> ·{' '}
+                    {s.time}
                   </p>
                   <Notice tone="success">
                     {s.payment === 'online'
@@ -391,7 +408,8 @@ export class Booking extends React.Component<{ websiteUrl: string; initialDoctor
                     </a>
                   )}
                   <Button onClick={this.next}>
-                    {s.step === 2 ? 'Confirm demo booking' : 'Continue'} <Icon name="arrow" size={17} />
+                    <L en={s.step === 2 ? 'Confirm demo booking' : 'Continue'} />{' '}
+                    <Icon name="arrow" size={17} />
                   </Button>
                 </div>
               )}
@@ -415,16 +433,18 @@ export class Booking extends React.Component<{ websiteUrl: string; initialDoctor
                   <L en="Date" />
                 </span>
                 <strong>
-                  {selectedDate
-                    ? `${selectedDate.dayNum} ${selectedDate.month}, ${selectedDate.day}`
-                    : 'Not selected'}
+                  {selectedDate ? (
+                    <When iso={noonIST(selectedDate.key)} format={fullDay} />
+                  ) : (
+                    <L en={'Not selected'} />
+                  )}
                 </strong>
               </div>
               <div className="review-row">
                 <span>
                   <L en="Time" />
                 </span>
-                <strong>{s.time || 'Not selected'}</strong>
+                <strong>{s.time || <L en={'Not selected'} />}</strong>
               </div>
               <div className="review-row">
                 <span>

@@ -1,4 +1,5 @@
 'use client';
+import { L, useT } from '@hms/ui';
 import { useEffect, useRef, useState } from 'react';
 import Script from 'next/script';
 type Turnstile = {
@@ -18,6 +19,7 @@ function instance() {
   return (window as unknown as { turnstile?: Turnstile }).turnstile;
 }
 export function Captcha({ onToken, resetKey = 0 }: { onToken: (token: string) => void; resetKey?: number }) {
+  const tx = useT();
   const el = useRef<HTMLDivElement>(null),
     callback = useRef(onToken);
   const [ready, setReady] = useState(false);
@@ -44,9 +46,11 @@ export function Captcha({ onToken, resetKey = 0 }: { onToken: (token: string) =>
         strategy="afterInteractive"
         onReady={() => setReady(true)}
       />
-      <div ref={el} className="captcha-wrap" aria-label="Security verification" />
+      <div ref={el} className="captcha-wrap" aria-label={tx('Security verification')} />
     </>
   ) : (
-    <p className="form-error">Security verification is not configured. Contact the administrator.</p>
+    <p className="form-error">
+      <L en={'Security verification is not configured. Contact the administrator.'} />
+    </p>
   );
 }

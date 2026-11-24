@@ -1,8 +1,9 @@
 'use client';
 import { useState } from 'react';
-import { Button, Field, Notice, L } from '@hms/ui';
+import { Button, Field, Notice, L, T, useT } from '@hms/ui';
 import { Captcha } from './captcha';
 export function CallbackForm({ demo, portalUrl }: { demo: boolean; portalUrl: string }) {
+  const tx = useT();
   const [name, setName] = useState(''),
     [phone, setPhone] = useState('+91'),
     [category, setCategory] = useState('appointment'),
@@ -72,18 +73,30 @@ export function CallbackForm({ demo, portalUrl }: { demo: boolean; portalUrl: st
       </Field>
       <Field label="What can we help with?">
         <select value={category} onChange={(e) => setCategory(e.target.value)}>
-          <option value="appointment">Appointments</option>
-          <option value="hours">Opening hours</option>
-          <option value="billing">Billing information</option>
-          <option value="general">General inquiry</option>
+          <option value="appointment">{tx('Appointments')}</option>
+          <option value="hours">{tx('Opening hours')}</option>
+          <option value="billing">{tx('Billing information')}</option>
+          <option value="general">{tx('General inquiry')}</option>
         </select>
       </Field>
       <Notice>
         <L en="Do not include medical records, symptoms or emergency information. For emergencies, contact local emergency services." />
       </Notice>
       <label className="check-field">
-        <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} /> I
-        acknowledge the <a href="/policies/privacy">privacy notice</a> and request a callback.
+        <T
+          en={'{0} I acknowledge the {1} and request a callback.'}
+          values={[
+            <input
+              key="v0"
+              type="checkbox"
+              checked={consent}
+              onChange={(e) => setConsent(e.target.checked)}
+            />,
+            <a key="v1" href="/policies/privacy">
+              privacy notice
+            </a>,
+          ]}
+        />
       </label>
       {!demo && <Captcha onToken={setToken} resetKey={reset} />}
       <Button type="submit" disabled={busy || !consent || (!demo && !token)}>

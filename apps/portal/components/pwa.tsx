@@ -63,17 +63,21 @@ export function PortalPWA() {
               } else setHelp((v) => !v);
             }}
           >
-            Install app
+            <L en={'Install app'} />
           </button>
         )}
       </div>
       {help && (
         <div className="pwa-help" role="status">
-          <strong>Install on your device</strong>
+          <strong>
+            <L en={'Install on your device'} />
+          </strong>
           <p>
             <L en="Android / desktop: use the browser menu and select Install app or Add to Home screen if available. iPhone / iPad: in Safari, tap Share, then Add to Home Screen. The public hospital website remains a normal website." />
           </p>
-          <button onClick={() => setHelp(false)}>Close</button>
+          <button onClick={() => setHelp(false)}>
+            <L en={'Close'} />
+          </button>
         </div>
       )}
     </>

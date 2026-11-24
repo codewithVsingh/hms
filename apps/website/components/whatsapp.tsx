@@ -1,12 +1,12 @@
+import { Aria, L } from '@hms/ui';
 export function WhatsAppContact() {
   const phone = (process.env.NEXT_PUBLIC_HOSPITAL_WHATSAPP || '').replace(/^\+/, '');
   const valid = /^[1-9]\d{7,14}$/.test(phone);
   return (
-    <a
+    <Aria
+      as="a"
       className="whatsapp-float"
-      aria-label={
-        valid ? 'Contact hospital on WhatsApp' : 'Contact information (WhatsApp number not configured)'
-      }
+      label={valid ? 'Contact hospital on WhatsApp' : 'Contact information (WhatsApp number not configured)'}
       href={
         valid
           ? `https://wa.me/${phone}?text=${encodeURIComponent('Hello, I would like to ask about an appointment.')}`
@@ -27,7 +27,9 @@ export function WhatsAppContact() {
           fill="currentColor"
         />
       </svg>
-      <span>WhatsApp</span>
-    </a>
+      <span>
+        <L en={'WhatsApp'} />
+      </span>
+    </Aria>
   );
 }

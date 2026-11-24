@@ -4,8 +4,8 @@ Running record for the audit and hardening work, so any session can resume witho
 
 **Resume here:** next up is Phase 3, in this order:
 1. HMS-020 rate limiting (edge/WAF or DB-backed limiter)
-2. HMS-024 Hindi completion (new screens from 021–023 are English-only apart from the register and timeline)
-3. HMS-021 nurse vitals (waiting for hospital decision)
+2. HMS-021 nurse vitals (waiting for hospital decision)
+3. HMS-024 follow-ups once the hospital decides: bilingual CMS content, Hindi notifications, stored language preference; native-speaker and clinician review of the Hindi text
 
 Start a local DB with `supabase/tests/local/run.sh` and add a T-test for each change.
 
@@ -35,6 +35,7 @@ Start a local DB with `supabase/tests/local/run.sh` and add a T-test for each ch
 | Docs | — | `docs/BUSINESS_RULES.md`, `.github/pull_request_template.md` | All business rules with enforcement and tests; decision log; PR checklist requires keeping it current | — | — |
 | HMS-018 | P1 | `supabase/migrations/202611250023_duplicate_patients.sql`, `supabase/tests/verify_duplicates.sql`, `apps/portal/app/api/v1/[...action]/route.ts`, `apps/portal/app/api/v3/[...action]/route.ts`, `apps/portal/features/live/duplicate-patients.tsx`, `workspace.tsx`, `booking.tsx`, `patient-history.tsx`, `extended.tsx`, `lib/extended-nav.ts` | Name+mobile+DOB matching (shared mobile alone not a match); registration check with recorded override; DOB required for online booking with silent flags; review queue; two-person merge with ID-type check; first UHID survives with alias; undo without time limit (setting); doctor banner | T15, `tests/duplicate-patients.spec.ts` | Local + CI |
 | UI | P2 | `apps/portal/features/live/prescription-corrections.tsx` | Hydration mismatch from the demo amendment window (time rendered on server); time-dependent text now renders after mount | Dev log clean | Local |
+| HMS-024 | P2 | `packages/ui/locale.tsx`, `packages/ui/hi.ts`, `packages/ui/index.tsx`, all screens under `apps/portal` and `apps/website`, `apps/portal/app/page.tsx`, `tests/hindi.spec.ts` | Hindi for every screen, new and old: about 1,100 interface strings in the catalogue (was about 320); whole-sentence templates (`T`) instead of stitched fragments; `useT`/`Aria` for placeholders, dialogs and screen-reader labels; dates in hi-IN (`When`); API error messages; demo workspace and booking (class components get a translator prop); option values stay English; portal root keeps `?lang`; one term per concept. Fixed on the way: `Empty` titles never translated; 3 selects whose submitted value would have changed with language; React key warnings | `tests/hindi.spec.ts` (3 tests), full E2E 69/69, Hindi crawl of 54 pages | Local |
 | HMS-033 | P1 | `docs/BACKUP_AND_RECOVERY.md` | Procedure documented | — | Restore drill pending |
 | Docs | — | `docs/*.md` (this set) | Audit, gap analysis, security, threat model, roles, env, DB, tests, readiness | — | — |
 
@@ -46,6 +47,6 @@ Start a local DB with `supabase/tests/local/run.sh` and add a T-test for each ch
 | HMS-021 | P2 | Optional nurse `vitals.write` | Hospital decision |
 | HMS-022 | P2 | Daily cash close report; discounts with approval | Finance process |
 | HMS-023 | P2 | Provider callbacks, in-app notifications | Provider accounts |
-| HMS-024 | P2 | Complete Hindi catalogue | Native and clinical review |
+| HMS-024b | P2 | Bilingual CMS content; Hindi notification templates; patient language preference; native and clinical review of Hindi | Hospital decisions; Meta template approval |
 | HMS-025–029 | P3 | See gap analysis | — |
 | HMS-032 | P1 | Legal and compliance review | Hospital legal |

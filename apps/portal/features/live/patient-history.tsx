@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { Button, Field, Notice, Badge, L, translate, useLanguage } from '@hms/ui';
+import { Button, Field, Notice, Badge, L, translate, useLanguage, When, useT } from '@hms/ui';
 import { v3, type CancellationPolicy } from './v3-client';
 import { v2 } from './v2-client';
 import { message, when, human } from './client';
@@ -202,7 +202,7 @@ function useWork() {
       <>
         {err && (
           <p role="alert" className="form-error">
-            {err}
+            <L en={err} />
           </p>
         )}
         {ok && <Notice tone="success">{ok}</Notice>}
@@ -221,6 +221,7 @@ function SearchBox({
   onSearch: () => void;
   busy: boolean;
 }) {
+  const tx = useT();
   return (
     <form
       className="mrn-search"
@@ -234,7 +235,7 @@ function SearchBox({
           value={value}
           required
           maxLength={40}
-          placeholder="PT-000127"
+          placeholder={tx('PT-000127')}
           autoComplete="off"
           disabled={busy}
           onChange={(e) => onChange(e.target.value)}
@@ -363,7 +364,9 @@ export function PatientTimeline({ demo = false }: { demo?: boolean }) {
               <div className="ops-item" key={i}>
                 <Badge>{human(h.kind)}</Badge>
                 <p>{h.detail}</p>
-                <small>{when(h.recorded_at)}</small>
+                <small>
+                  <When iso={h.recorded_at} />
+                </small>
               </div>
             ))}
           </div>
@@ -381,7 +384,7 @@ export function PatientTimeline({ demo = false }: { demo?: boolean }) {
                 <div>
                   <h3>{v.reference}</h3>
                   <p>
-                    {when(v.starts_at)} · {v.doctor}
+                    <When iso={v.starts_at} /> · {v.doctor}
                   </p>
                 </div>
                 <Badge tone={v.status === 'completed' ? 'green' : 'neutral'}>{human(v.status)}</Badge>
@@ -424,10 +427,10 @@ export function PatientTimeline({ demo = false }: { demo?: boolean }) {
               {v.prescriptions.map((r) => (
                 <details key={r.id} open={v.id === data.visits[0]?.id}>
                   <summary>
-                    <L en="Doctor-issued prescription" hi="डॉक्टर द्वारा जारी पर्चा" /> · {r.version}
+                    <L en="Doctor-issued prescription" hi="डॉक्टर द्वारा जारी प्रिस्क्रिप्शन" /> · {r.version}
                   </summary>
                   <p className="text-sm">
-                    {r.doctor} · {r.registration} · {when(r.issuedAt)}
+                    {r.doctor} · {r.registration} · <When iso={r.issuedAt} />
                   </p>
                   <div className="rx-table">
                     {r.items.map((x, i) => (
@@ -452,7 +455,7 @@ export function PatientTimeline({ demo = false }: { demo?: boolean }) {
                   <div className="live-card-head">
                     <div>
                       <strong>
-                        <L en="Paper prescription" hi="कागज़ी पर्चा" />
+                        <L en="Paper prescription" hi="कागज़ी प्रिस्क्रिप्शन" />
                       </strong>
                       <p>{p.name}</p>
                     </div>
@@ -486,7 +489,7 @@ export function PatientTimeline({ demo = false }: { demo?: boolean }) {
                           if (
                             confirm(
                               lang === 'hi'
-                                ? 'मूल पर्चे की जाँच करके ही पुष्टि करें।'
+                                ? 'मूल प्रिस्क्रिप्शन की जाँच करके ही पुष्टि करें।'
                                 : 'Confirm only after checking the original prescription.',
                             )
                           )
@@ -523,6 +526,7 @@ export function PatientTimeline({ demo = false }: { demo?: boolean }) {
   );
 }
 export function PrescriptionRegister({ demo = false }: { demo?: boolean }) {
+  const tx = useT();
   const [mrn, setMrn] = useState(demo ? sampleMrn : ''),
     [data, setData] = useState<Register | null>(null),
     [searched, setSearched] = useState(false),
@@ -548,13 +552,13 @@ export function PrescriptionRegister({ demo = false }: { demo?: boolean }) {
       <p>
         <L
           en="Doctor-issued prescriptions are saved automatically. Reception can record handover or archive a scanned copy of a paper prescription."
-          hi="डॉक्टर द्वारा जारी पर्चे अपने आप सहेजे जाते हैं। रिसेप्शन पर्चा देने का रिकॉर्ड रख सकता है या कागज़ी पर्चे की स्कैन प्रति सहेज सकता है।"
+          hi="डॉक्टर द्वारा जारी प्रिस्क्रिप्शन अपने आप सहेजे जाते हैं। रिसेप्शन प्रिस्क्रिप्शन देने का रिकॉर्ड रख सकता है या कागज़ी प्रिस्क्रिप्शन की स्कैन प्रति सहेज सकता है।"
         />
       </p>
       <Notice>
         <L
           en="Reception cannot read or modify medication instructions. A paper copy is not a new prescription and requires clinician verification."
-          hi="रिसेप्शन दवा निर्देश पढ़ या बदल नहीं सकता। स्कैन प्रति नया पर्चा नहीं है और डॉक्टर की पुष्टि आवश्यक है।"
+          hi="रिसेप्शन दवा निर्देश पढ़ या बदल नहीं सकता। स्कैन प्रति नया प्रिस्क्रिप्शन नहीं है और डॉक्टर की पुष्टि आवश्यक है।"
         />
       </Notice>
       <SearchBox
@@ -580,11 +584,11 @@ export function PrescriptionRegister({ demo = false }: { demo?: boolean }) {
             <p>{data.mrn}</p>
           </div>
           <h3>
-            <L en="Issued prescriptions" hi="जारी पर्चे" />
+            <L en="Issued prescriptions" hi="जारी प्रिस्क्रिप्शन" />
           </h3>
           {!data.prescriptions.length && (
             <Notice>
-              <L en="No signed prescriptions yet." hi="अभी कोई जारी पर्चा नहीं है।" />
+              <L en="No signed prescriptions yet." hi="अभी कोई जारी प्रिस्क्रिप्शन नहीं है।" />
             </Notice>
           )}
           {data.prescriptions.map((r) => (
@@ -593,7 +597,7 @@ export function PrescriptionRegister({ demo = false }: { demo?: boolean }) {
                 <div>
                   <strong>{r.reference}</strong>
                   <p>
-                    {r.doctor} · {when(r.signed_at)}
+                    {r.doctor} · <When iso={r.signed_at} />
                     {r.amended && (
                       <>
                         {' '}
@@ -605,13 +609,13 @@ export function PrescriptionRegister({ demo = false }: { demo?: boolean }) {
                 <Badge tone={r.handed_over_at ? 'green' : 'amber'}>
                   <L
                     en={r.handed_over_at ? 'Handed over' : 'Not handed over'}
-                    hi={r.handed_over_at ? 'पर्चा दिया गया' : 'पर्चा देना बाकी'}
+                    hi={r.handed_over_at ? 'प्रिस्क्रिप्शन दिया गया' : 'प्रिस्क्रिप्शन देना बाकी'}
                   />
                 </Badge>
               </div>
               {r.handed_over_at ? (
                 <p>
-                  {when(r.handed_over_at)} · {human(r.method || 'printed')}
+                  <When iso={r.handed_over_at} /> · <L en={human(r.method || 'printed')} />
                 </p>
               ) : (
                 <Button
@@ -638,11 +642,11 @@ export function PrescriptionRegister({ demo = false }: { demo?: boolean }) {
                           await load();
                         }
                       },
-                      lang === 'hi' ? 'पर्चा देने का रिकॉर्ड सहेजा गया।' : 'Handover recorded.',
+                      lang === 'hi' ? 'प्रिस्क्रिप्शन देने का रिकॉर्ड सहेजा गया।' : 'Handover recorded.',
                     )
                   }
                 >
-                  <L en="Record printed handover" hi="प्रिंट किया हुआ पर्चा देने का रिकॉर्ड रखें" />
+                  <L en="Record printed handover" hi="प्रिंट किया हुआ प्रिस्क्रिप्शन देने का रिकॉर्ड रखें" />
                 </Button>
               )}
             </div>
@@ -665,7 +669,7 @@ export function PrescriptionRegister({ demo = false }: { demo?: boolean }) {
                       <strong>{r.reference}</strong>
                       <p>
                         {r.doctor} · <L en={`Version ${r.version}`} hi={`संस्करण ${r.version}`} /> ·{' '}
-                        {when(r.handed_over_at)}
+                        <When iso={r.handed_over_at} />
                       </p>
                     </div>
                     <Badge tone="red">
@@ -701,7 +705,7 @@ export function PrescriptionRegister({ demo = false }: { demo?: boolean }) {
             </>
           )}
           <h3>
-            <L en="Archive a paper prescription" hi="कागज़ी पर्चे की प्रति सहेजें" />
+            <L en="Archive a paper prescription" hi="कागज़ी प्रिस्क्रिप्शन की प्रति सहेजें" />
           </h3>
           <form
             className="history-card stack"
@@ -747,7 +751,7 @@ export function PrescriptionRegister({ demo = false }: { demo?: boolean }) {
                 <option value="">{translate('Select an appointment', lang)}</option>
                 {data.visits.map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.reference} · {when(v.starts_at)} · {v.doctor}
+                    {tx(String(v.reference))} · {when(v.starts_at)} · {tx(String(v.doctor))}
                   </option>
                 ))}
               </select>
@@ -775,7 +779,9 @@ export function PrescriptionRegister({ demo = false }: { demo?: boolean }) {
             <div className="history-card live-card-head" key={p.document_id}>
               <div>
                 <strong>{p.reference}</strong>
-                <p>{when(p.uploaded_at)}</p>
+                <p>
+                  <When iso={p.uploaded_at} />
+                </p>
               </div>
               <Badge tone={p.verified_at ? 'green' : 'amber'}>
                 <L

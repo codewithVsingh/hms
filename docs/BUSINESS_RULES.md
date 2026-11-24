@@ -201,6 +201,17 @@ Where: `hms_v3_reschedule`.
 
 Name, mobile (E.164), category and consent are required; protected by CAPTCHA and an origin check. Off unless `HMS_CALLBACK_ENABLED=true`. Reception marks requests contacted or closed.
 
+## 15a. Language (English / Hindi)
+
+- English is the default. Hindi is chosen with the language switch (or `?lang=hi`), remembered in the browser and passed between website and portal. The page sets `lang="hi-IN"`.
+- **Translated:** all interface text: labels, buttons, headings, status names, confirmations, error messages from the API, dialogs, screen-reader labels, and dates and times (Indian format, IST).
+- **Never translated:** patient and staff names, UHIDs and booking references, medicine names, doses, frequencies and instructions, diagnoses and clinical notes, uploaded documents. Clinical text stays in the language it was recorded in, so a translation can never change its medical meaning.
+- **Not yet translated (needs a decision):** website content written in the CMS (service pages, doctor profiles, articles, policies) is stored in one language; notification messages (SMS, email, WhatsApp) are English only; the patient's language choice is not stored on their record, so it can't drive notifications.
+- Values sent to the server never change with language (for example a document category is sent as `report` whichever language is shown).
+- Wording: whole sentences are translated as one unit (never stitched from fragments), so Hindi word order is correct. Terms: appointment = अपॉइंटमेंट, patient = रोगी, prescription = प्रिस्क्रिप्शन, refund = रिफ़ंड.
+- All Hindi text is a first draft by engineering. A native speaker must review it, and a clinician must review patient-facing medical wording, before launch.
+- Where: `packages/ui/locale.tsx` (core catalogue and components), `packages/ui/hi.ts` (portal catalogue). Test: `tests/hindi.spec.ts`.
+
 ---
 
 ## 16. Decision log
@@ -215,4 +226,7 @@ Name, mobile (E.164), category and consent are required; protected by CAPTCHA an
 | 25 Nov 2026 | Prescription corrections: issuer-only amendment, 72 h from first issue, patient notified on every amendment, withdrawal needs a second person (another doctor or admin), hidden from the patient while pending | Owner (approved proposal) | Migration 022 |
 | 25 Nov 2026 | Duplicate patients: match levels as above (shared mobile alone is not a match); merges approved by an administrator only; first-registered UHID survives, other becomes an alias; ID document type checked before approval (number never stored); date of birth required for online booking | Owner (approved proposal) | Migration 023 |
 | 25 Nov 2026 | Merge undo has **no time limit** for the initial stage (3–6 months); a limit can be set later with `merge_undo_days` | Owner | Migration 023 |
+| 25 Nov 2026 | Hindi covers all interface text; names, identifiers, medicines, diagnoses and clinical notes are never translated; one term per concept (प्रिस्क्रिप्शन, रिफ़ंड) | Engineering (owner asked for Hindi on all screens) | HMS-024; native and clinical review still required |
+| Pending | Bilingual CMS content (Hindi version of service pages, doctor profiles, articles, policies) with medical review | Hospital | HMS-024 follow-up |
+| Pending | Hindi notification templates and storing the patient's preferred language | Hospital | HMS-024 follow-up; WhatsApp templates need Meta approval per language |
 | Pending | Nurses recording vitals | Hospital | HMS-021 |

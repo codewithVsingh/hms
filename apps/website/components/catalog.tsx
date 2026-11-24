@@ -1,12 +1,14 @@
 import { doctors, services, articles, type Doctor, type Service } from '@hms/types';
-import { Icon, Button, Badge, SectionHeading, L } from '@hms/ui';
+import { Aria, Icon, Button, Badge, SectionHeading, L, T } from '@hms/ui';
 import { portalUrl } from '../lib/config';
 export function DoctorPortrait({ doctor }: { doctor: Doctor }) {
   return (
-    <div
+    <Aria
+      as="div"
       className={`portrait portrait-${doctor.color}`}
       role="img"
-      aria-label={`Illustrated placeholder for ${doctor.name}`}
+      label="Illustrated placeholder for {0}"
+      values={[doctor.name]}
     >
       <div className="portrait-circle" />
       <svg width="240" height="190" viewBox="0 0 240 190" fill="none" aria-hidden="true">
@@ -36,9 +38,9 @@ export function DoctorPortrait({ doctor }: { doctor: Doctor }) {
         <rect x="153" y="173" width="17" height="9" rx="2" fill="#c5ded7" />
       </svg>
       <span className="portrait-tag">
-        <span className="live-dot" /> Demo profile
+        <T en={'{0} Demo profile'} values={[<span key="v0" className="live-dot" />]} />
       </span>
-    </div>
+    </Aria>
   );
 }
 export function DoctorCard({ doctor }: { doctor: Doctor }) {
@@ -59,7 +61,9 @@ export function DoctorCard({ doctor }: { doctor: Doctor }) {
           </span>
           <strong>
             ₹{doctor.fee}
-            <small> / visit</small>
+            <small>
+              <L en={'/ visit'} />
+            </small>
           </strong>
         </div>
         <div className="doctor-actions">
@@ -67,7 +71,7 @@ export function DoctorCard({ doctor }: { doctor: Doctor }) {
             <L en="View profile" />
           </Button>
           <Button href={`${portalUrl}/book?doctor=${doctor.slug}`}>
-            Book visit <Icon name="arrow" size={15} />
+            <T en={'Book visit {0}'} values={[<Icon key="v0" name="arrow" size={15} />]} />
           </Button>
         </div>
       </div>
@@ -98,7 +102,9 @@ export function ArticleCard({ article }: { article: (typeof articles)[number] })
         <span className="article-tag">{article.category}</span>
       </div>
       <div className="article-body">
-        <span className="muted text-sm">{article.minutes} min read · Demo content</span>
+        <span className="muted text-sm">
+          <T en={'{0} min read · Demo content'} values={[article.minutes]} />
+        </span>
         <h3>{article.title}</h3>
         <p>{article.intro}</p>
         <span className="learn-link">

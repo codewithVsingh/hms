@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Brand, Button, Field, Notice, Badge, Icon, Empty, L } from '@hms/ui';
+import { Brand, Button, Field, Notice, Badge, Icon, Empty, L, T, When, useT } from '@hms/ui';
 import { api, localDay, when, rupees, human, message } from './client';
 import type { StaffContext } from '../../lib/server/supabase';
 import { MoveAppointment, InvoiceButton } from './extended';
@@ -78,6 +78,7 @@ export function LiveWorkspace({
   section: string;
   websiteUrl: string;
 }) {
+  const tx = useT();
   const has = (p: string) => context.permissions.includes(p);
   const nav = [...navigation, ...extendedNav.filter((n) => n.roles.includes(role))].filter(
     (n) => !n.perms.length || n.perms.some(has),
@@ -120,7 +121,7 @@ export function LiveWorkspace({
     [payMethods, setPayMethods] = useState<Record<string, string>>({}),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
-    [success, setSuccess] = useState(''),
+    [success, setSuccess] = useState<React.ReactNode>(''),
     [loading, setLoading] = useState(true);
   const lock = useRef(false),
     request = useRef('');
@@ -156,7 +157,7 @@ export function LiveWorkspace({
     const t = setTimeout(() => setQuery(search.trim()), 350);
     return () => clearTimeout(t);
   }, [search]);
-  async function run(task: () => Promise<void>, msg: string | (() => string)) {
+  async function run(task: () => Promise<void>, msg: React.ReactNode | (() => React.ReactNode)) {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
@@ -193,8 +194,12 @@ export function LiveWorkspace({
   const table = (
     <div className="surface live-table">
       <div className="live-table-head">
-        <h3>{current === 'billing' ? 'Invoices & collections' : 'Appointment list'}</h3>
-        <p>Showing {filtered.length} records, up to 200 from the selected view.</p>
+        <h3>
+          <L en={current === 'billing' ? 'Invoices & collections' : 'Appointment list'} />
+        </h3>
+        <p>
+          <T en={'Showing {0} records, up to 200 from the selected view.'} values={[filtered.length]} />
+        </p>
       </div>
       {filtered.length === 0 ? (
         <Empty title="No records" description="Try another date or search." />
@@ -203,18 +208,26 @@ export function LiveWorkspace({
           <table>
             <thead>
               <tr>
-                <th>Appointment</th>
-                <th>Patient / doctor</th>
+                <th>
+                  <L en={'Appointment'} />
+                </th>
+                <th>
+                  <L en={'Patient / doctor'} />
+                </th>
                 <th>
                   <L en="Time" />
                 </th>
-                <th>Status</th>
+                <th>
+                  <L en={'Status'} />
+                </th>
                 {has('billing.read') && (
                   <th>
                     <L en="Payment" />
                   </th>
                 )}
-                <th>Actions</th>
+                <th>
+                  <L en={'Actions'} />
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -224,10 +237,12 @@ export function LiveWorkspace({
                     <strong className="break-ref">{a.reference}</strong>
                   </td>
                   <td>
-                    {a.patient || 'Restricted'}
+                    {a.patient || <L en={'Restricted'} />}
                     <small>{a.doctor}</small>
                   </td>
-                  <td>{when(a.startsAt)}</td>
+                  <td>
+                    <When iso={a.startsAt} />
+                  </td>
                   <td>
                     <Badge tone={a.status === 'confirmed' || a.status === 'completed' ? 'green' : 'neutral'}>
                       {human(a.status)}
@@ -251,7 +266,9 @@ export function LiveWorkspace({
                             onClick={() => {
                               if (
                                 confirm(
-                                  'Cancel this future visit? Any received payment must be reconciled separately.',
+                                  tx(
+                                    'Cancel this future visit? Any received payment must be reconciled separately.',
+                                  ),
                                 )
                               )
                                 void run(
@@ -272,7 +289,7 @@ export function LiveWorkspace({
                             disabled={busy}
                             variant="secondary"
                             onClick={() => {
-                              if (confirm('Mark this visit as no-show?')) change(a, 'no_show');
+                              if (confirm(tx('Mark this visit as no-show?'))) change(a, 'no_show');
                             }}
                           >
                             No-show
@@ -314,7 +331,7 @@ export function LiveWorkspace({
                             variant="secondary"
                             disabled={busy}
                             onClick={() => {
-                              if (confirm('Complete this visit? Draft notes become read-only.'))
+                              if (confirm(tx('Complete this visit? Draft notes become read-only.')))
                                 change(a, 'completed');
                             }}
                           >
@@ -336,15 +353,15 @@ export function LiveWorkspace({
                               value={payMethods[a.id] || 'cash'}
                               onChange={(e) => setPayMethods((p) => ({ ...p, [a.id]: e.target.value }))}
                             >
-                              <option value="cash">Cash</option>
-                              <option value="upi_offline">UPI received</option>
-                              <option value="card_offline">Card received</option>
-                              <option value="bank_transfer">Bank transfer</option>
+                              <option value="cash">{tx('Cash')}</option>
+                              <option value="upi_offline">{tx('UPI received')}</option>
+                              <option value="card_offline">{tx('Card received')}</option>
+                              <option value="bank_transfer">{tx('Bank transfer')}</option>
                             </select>
                             <Button
                               disabled={busy}
                               onClick={() => {
-                                if (confirm('Confirm that the full amount has actually been received?'))
+                                if (confirm(tx('Confirm that the full amount has actually been received?')))
                                   void run(async () => {
                                     await api('staff/collect', {
                                       id: a.id,
@@ -358,7 +375,9 @@ export function LiveWorkspace({
                           </>
                         )}
                       {a.paymentStatus === 'needs_review' && (
-                        <span className="text-sm">Manual payment review required</span>
+                        <span className="text-sm">
+                          <L en={'Manual payment review required'} />
+                        </span>
                       )}
                     </div>
                   </td>
@@ -378,8 +397,10 @@ export function LiveWorkspace({
           href={websiteUrl}
           sub="HMS workspace"
         />
-        <p className="eyebrow">{human(role)} workspace</p>
-        <nav aria-label="Workspace navigation">
+        <p className="eyebrow">
+          <T en={'{0} workspace'} values={[<L key="v0" en={human(role)} />]} />
+        </p>
+        <nav aria-label={tx('Workspace navigation')}>
           {nav.map((n) => (
             <a key={n.id} className={current === n.id ? 'active' : ''} href={`/${role}/${n.id}`}>
               <Icon name={n.icon} />
@@ -388,10 +409,22 @@ export function LiveWorkspace({
           ))}
         </nav>
         <div className="live-switch">
-          {context.roles.includes('doctor') && role !== 'doctor' && <a href="/doctor">Doctor workspace</a>}
-          {context.roles.includes('super_admin') && role !== 'admin' && <a href="/admin">Admin workspace</a>}
+          {context.roles.includes('doctor') && role !== 'doctor' && (
+            <a href="/doctor">
+              <L en={'Doctor workspace'} />
+            </a>
+          )}
+          {context.roles.includes('super_admin') && role !== 'admin' && (
+            <a href="/admin">
+              <L en={'Admin workspace'} />
+            </a>
+          )}
           {context.roles.some((r) => ['receptionist', 'billing', 'nurse', 'content_manager'].includes(r)) &&
-            role !== 'staff' && <a href="/staff">Staff workspace</a>}
+            role !== 'staff' && (
+              <a href="/staff">
+                <L en={'Staff workspace'} />
+              </a>
+            )}
         </div>
         <Button
           variant="secondary"
@@ -411,15 +444,21 @@ export function LiveWorkspace({
       <main id="main" className="live-main">
         <header className="live-card-head live-top">
           <div>
-            <span className="eyebrow">Secure operations</span>
-            <h1>{nav.find((n) => n.id === current)?.label || 'Module not available'}</h1>
-            <p>Welcome, {context.name}</p>
+            <span className="eyebrow">
+              <L en={'Secure operations'} />
+            </span>
+            <h1>
+              <L en={nav.find((n) => n.id === current)?.label || 'Module not available'} />
+            </h1>
+            <p>
+              <T en={'Welcome, {0}'} values={[context.name]} />
+            </p>
           </div>
           <Badge tone="teal">MFA verified</Badge>
         </header>
         {error && (
           <div role="alert" className="form-error">
-            {error}
+            <L en={error} />
           </div>
         )}
         {success && <Notice tone="success">{success}</Notice>}
@@ -442,14 +481,23 @@ export function LiveWorkspace({
                     />
                   </Field>
                   <label className="check-field">
-                    <input type="checkbox" checked={allDays} onChange={(e) => setAllDays(e.target.checked)} />{' '}
-                    Recent records (all dates)
+                    <T
+                      en={'{0} Recent records (all dates)'}
+                      values={[
+                        <input
+                          key="v0"
+                          type="checkbox"
+                          checked={allDays}
+                          onChange={(e) => setAllDays(e.target.checked)}
+                        />,
+                      ]}
+                    />
                   </label>
                   <Field label="Filter records">
                     <input
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Reference, doctor or patient"
+                      placeholder={tx('Reference, doctor or patient')}
                     />
                   </Field>
                   <Button
@@ -461,7 +509,11 @@ export function LiveWorkspace({
                   </Button>
                 </div>
               )}
-            {loading && <p role="status">Loading records…</p>}
+            {loading && (
+              <p role="status">
+                <L en={'Loading records…'} />
+              </p>
+            )}
             {current === 'dashboard' && (
               <>
                 <div className="live-kpis">
@@ -475,7 +527,9 @@ export function LiveWorkspace({
                     { label: 'Completed', value: rows.filter((a) => a.status === 'completed').length },
                   ].map((k) => (
                     <div className="surface live-kpi" key={k.label}>
-                      <p>{k.label}</p>
+                      <p>
+                        <L en={k.label} />
+                      </p>
                       <strong>{k.value}</strong>
                     </div>
                   ))}
@@ -490,10 +544,16 @@ export function LiveWorkspace({
               table}
             {current === 'appointments' && has('appointments.create') && (
               <section className="surface live-panel stack">
-                <h2>Book at reception</h2>
+                <h2>
+                  <L en={'Book at reception'} />
+                </h2>
                 <p>
-                  Use an existing registered patient, and choose an available time on {date}. Online and
-                  reception bookings share the same slot inventory.
+                  <T
+                    en={
+                      'Use an existing registered patient, and choose an available time on {0}. Online and reception bookings share the same slot inventory.'
+                    }
+                    values={[date]}
+                  />
                 </p>
                 <div className="form-grid">
                   <Field label="Registered patient">
@@ -504,10 +564,10 @@ export function LiveWorkspace({
                         request.current = '';
                       }}
                     >
-                      <option value="">Choose patient</option>
+                      <option value="">{tx('Choose patient')}</option>
                       {patients.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name} · {p.mrn}
+                          {tx(String(p.name))} · {tx(String(p.mrn))}
                         </option>
                       ))}
                     </select>
@@ -520,22 +580,27 @@ export function LiveWorkspace({
                         request.current = '';
                       }}
                     >
-                      <option value="">Choose slot</option>
+                      <option value="">{tx('Choose slot')}</option>
                       {slots.map((s) => (
                         <option key={s.id} value={s.id}>
-                          {s.doctor} · {when(s.startsAt)}
+                          {tx(String(s.doctor))} · {when(s.startsAt)}
                         </option>
                       ))}
                     </select>
                   </Field>
                 </div>
                 <label className="check-field">
-                  <input
-                    type="checkbox"
-                    checked={bookConsent}
-                    onChange={(e) => setBookConsent(e.target.checked)}
-                  />{' '}
-                  Patient has acknowledged the approved booking notice.
+                  <T
+                    en={'{0} Patient has acknowledged the approved booking notice.'}
+                    values={[
+                      <input
+                        key="v0"
+                        type="checkbox"
+                        checked={bookConsent}
+                        onChange={(e) => setBookConsent(e.target.checked)}
+                      />,
+                    ]}
+                  />
                 </label>
                 <Button
                   disabled={busy || !bookingPatient || !bookingSlot || !bookConsent || allDays}
@@ -561,7 +626,9 @@ export function LiveWorkspace({
             {current === 'patients' && (
               <>
                 <section className="surface live-panel stack">
-                  <h2>Patient directory</h2>
+                  <h2>
+                    <L en={'Patient directory'} />
+                  </h2>
                   <Field label="Search by name, UHID, mobile or booking reference">
                     <input value={search} onChange={(e) => setSearch(e.target.value)} />
                   </Field>
@@ -578,8 +645,12 @@ export function LiveWorkspace({
                             <th>
                               <L en="Patient" />
                             </th>
-                            <th>MRN</th>
-                            <th>Date of birth</th>
+                            <th>
+                              <L en={'MRN'} />
+                            </th>
+                            <th>
+                              <L en={'Date of birth'} />
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -587,7 +658,7 @@ export function LiveWorkspace({
                             <tr key={p.id}>
                               <td>{p.name}</td>
                               <td className="break-ref">{p.mrn}</td>
-                              <td>{p.birthDate || 'Not recorded'}</td>
+                              <td>{p.birthDate || <L en={'Not recorded'} />}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -635,7 +706,9 @@ export function LiveWorkspace({
                       );
                     }}
                   >
-                    <h2>Register patient</h2>
+                    <h2>
+                      <L en={'Register patient'} />
+                    </h2>
                     <Notice>
                       Search for an existing record before creating a new MRN. Registration does not verify
                       the supplied phone number.
@@ -681,15 +754,15 @@ export function LiveWorkspace({
                             setMatches(null);
                           }}
                         >
-                          <option value="">Not recorded</option>
-                          <option value="female">Female</option>
-                          <option value="male">Male</option>
-                          <option value="other">Other</option>
+                          <option value="">{tx('Not recorded')}</option>
+                          <option value="female">{tx('Female')}</option>
+                          <option value="male">{tx('Male')}</option>
+                          <option value="other">{tx('Other')}</option>
                         </select>
                       </Field>
                     </div>
                     {matches && matches.length > 0 && (
-                      <div className="stack" role="group" aria-label="Possible existing records">
+                      <div className="stack" role="group" aria-label={tx('Possible existing records')}>
                         <Notice tone="warning">
                           This patient may already be registered. Check the records below with the patient
                           before creating a new UHID.
@@ -701,10 +774,25 @@ export function LiveWorkspace({
                                 {m.name} · <span className="break-ref">{m.mrn}</span>
                               </strong>
                               <p>
-                                {m.level === 'likely' ? 'Likely the same person' : 'Possibly the same person'}{' '}
-                                · DOB {m.birthDate || 'not recorded'} · mobile ending {m.phoneLast4 || '—'} ·{' '}
-                                {m.visits} visit{m.visits === 1 ? '' : 's'}
-                                {m.lastVisit ? `, last ${when(m.lastVisit)}` : ''}
+                                <L
+                                  en={
+                                    m.level === 'likely'
+                                      ? 'Likely the same person'
+                                      : 'Possibly the same person'
+                                  }
+                                />
+                                {' · '}
+                                <T en="DOB {0}" values={[m.birthDate || <L key="n" en="not recorded" />]} />
+                                {' · '}
+                                <T en="mobile ending {0}" values={[m.phoneLast4 || '—']} />
+                                {' · '}
+                                <T en={m.visits === 1 ? '1 visit' : '{0} visits'} values={[m.visits]} />
+                                {m.lastVisit && (
+                                  <>
+                                    {' · '}
+                                    <T en="last visit {0}" values={[<When key="l" iso={m.lastVisit} />]} />
+                                  </>
+                                )}
                               </p>
                             </div>
                             <Button
@@ -726,7 +814,7 @@ export function LiveWorkspace({
                         <Field label="Reason for registering a new patient anyway">
                           <input
                             maxLength={300}
-                            placeholder="e.g. Family member sharing the same mobile number"
+                            placeholder={tx('e.g. Family member sharing the same mobile number')}
                             value={override}
                             onChange={(e) => setOverride(e.target.value)}
                           />
@@ -734,12 +822,17 @@ export function LiveWorkspace({
                       </div>
                     )}
                     <label className="check-field">
-                      <input
-                        type="checkbox"
-                        checked={consent}
-                        onChange={(e) => setConsent(e.target.checked)}
-                      />{' '}
-                      Patient or authorized guardian has acknowledged the registration notice.
+                      <T
+                        en={'{0} Patient or authorized guardian has acknowledged the registration notice.'}
+                        values={[
+                          <input
+                            key="v0"
+                            type="checkbox"
+                            checked={consent}
+                            onChange={(e) => setConsent(e.target.checked)}
+                          />,
+                        ]}
+                      />
                     </label>
                     <Button
                       type="submit"
@@ -758,9 +851,14 @@ export function LiveWorkspace({
             )}
             {selected && loadedNote === selected && noteAppt && has('clinical.assigned.write') && (
               <section className="surface live-panel stack">
-                <h2>Consultation draft</h2>
+                <h2>
+                  <L en={'Consultation draft'} />
+                </h2>
                 <p>
-                  {noteAppt.patient} · {noteAppt.reference} · version {version}
+                  <T
+                    en={'{0} · {1} · version {2}'}
+                    values={[noteAppt.patient, noteAppt.reference, version]}
+                  />
                 </p>
                 <Notice>
                   Draft notes are versioned. This is not a signed prescription or a finalized medical record.
@@ -792,7 +890,9 @@ export function LiveWorkspace({
             )}
             {current === 'staff' && (
               <section className="surface live-panel stack">
-                <h2>Branch team</h2>
+                <h2>
+                  <L en={'Branch team'} />
+                </h2>
                 <Notice>
                   Membership changes and invitations are currently provisioned by the administrator in
                   Supabase. This screen reads the actual assignments.
@@ -810,15 +910,25 @@ export function LiveWorkspace({
             )}
             {current === 'audit' && (
               <section className="surface live-panel">
-                <h2>Recent audit events</h2>
+                <h2>
+                  <L en={'Recent audit events'} />
+                </h2>
                 <div className="live-table-scroll">
                   <table>
                     <thead>
                       <tr>
-                        <th>Action</th>
-                        <th>Resource</th>
-                        <th>Result</th>
-                        <th>Timestamp</th>
+                        <th>
+                          <L en={'Action'} />
+                        </th>
+                        <th>
+                          <L en={'Resource'} />
+                        </th>
+                        <th>
+                          <L en={'Result'} />
+                        </th>
+                        <th>
+                          <L en={'Timestamp'} />
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -827,7 +937,9 @@ export function LiveWorkspace({
                           <td>{a.action}</td>
                           <td>{a.resource_type}</td>
                           <td>{a.result}</td>
-                          <td>{when(a.occurred_at)}</td>
+                          <td>
+                            <When iso={a.occurred_at} />
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -840,7 +952,9 @@ export function LiveWorkspace({
             {current === 'settings' && has('settings.manage') && <LiveAdminSettings />}
             {current === 'settings' && (
               <section className="surface live-panel stack">
-                <h2>My access</h2>
+                <h2>
+                  <L en={'My access'} />
+                </h2>
                 <p>{context.roles.map(human).join(', ')}</p>
                 <div className="live-actions">
                   {context.permissions.map((p) => (

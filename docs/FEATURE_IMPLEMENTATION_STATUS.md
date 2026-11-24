@@ -77,7 +77,7 @@ Key: **Done** = implemented end to end (UI → API → DB) · **Done (tested)** 
 | CMS workflow (draft → medical review → publish) | Done | |
 | Audit log | Done (tested) | Append-only since migration 019 |
 | Portal PWA (install, offline page, no caching) | Done | Device install testing pending |
-| English/Hindi | Partial | HMS-024 |
+| English/Hindi | Interface complete (all screens); CMS content, notifications and stored preference pending | HMS-024 |
 | Health check | Done (tested) | `/api/health` |
 | CI security scanning | Done | |
 | Backups and restore | Config | Procedure documented; drill pending |

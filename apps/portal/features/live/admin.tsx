@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
-import { Button, Field, Notice, Badge } from '@hms/ui';
+import { Button, Field, Notice, Badge, L, T, useT } from '@hms/ui';
 import { api, human, message, rupees } from './client';
 type Entry = {
   id: string;
@@ -24,11 +24,12 @@ const empty = {
   seoDescription: '',
 };
 export function LiveContent({ permissions }: { permissions: string[] }) {
+  const tx = useT();
   const has = (p: string) => permissions.includes(p);
   const [items, setItems] = useState<Entry[]>([]),
     [draft, setDraft] = useState(empty),
     [error, setError] = useState(''),
-    [success, setSuccess] = useState(''),
+    [success, setSuccess] = useState<React.ReactNode>(''),
     [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const refresh = async () => setItems(await api<Entry[]>('staff/content'));
@@ -56,7 +57,7 @@ export function LiveContent({ permissions }: { permissions: string[] }) {
     <div className="stack">
       {error && (
         <div className="form-error" role="alert">
-          {error}
+          <L en={error} />
         </div>
       )}
       {success && <Notice tone="success">{success}</Notice>}
@@ -75,13 +76,15 @@ export function LiveContent({ permissions }: { permissions: string[] }) {
             }, 'Draft saved.');
           }}
         >
-          <h2>{draft.id ? 'Edit draft' : 'New website content'}</h2>
+          <h2>
+            <L en={draft.id ? 'Edit draft' : 'New website content'} />
+          </h2>
           <div className="form-grid">
             <Field label="Content type">
               <select value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value })}>
                 {['article', 'page', 'service', 'faq', 'landing'].map((k) => (
                   <option value={k} key={k}>
-                    {human(k)}
+                    {tx(human(k))}
                   </option>
                 ))}
               </select>
@@ -149,8 +152,14 @@ export function LiveContent({ permissions }: { permissions: string[] }) {
         </form>
       )}
       <section className="surface live-panel stack">
-        <h2>Content workflow</h2>
-        {items.length === 0 && <p>No content entries yet.</p>}
+        <h2>
+          <L en={'Content workflow'} />
+        </h2>
+        {items.length === 0 && (
+          <p>
+            <L en={'No content entries yet.'} />
+          </p>
+        )}
         {items.map((item) => {
           const transition = (status: string) =>
             void run(
@@ -163,13 +172,15 @@ export function LiveContent({ permissions }: { permissions: string[] }) {
                 <div>
                   <h3>{item.title}</h3>
                   <p>
-                    {human(item.kind)} · /{item.slug}
+                    <L en={human(item.kind)} /> · /{item.slug}
                   </p>
                 </div>
                 <Badge>{human(item.status)}</Badge>
               </div>
               <details>
-                <summary>Read content</summary>
+                <summary>
+                  <L en={'Read content'} />
+                </summary>
                 <p>{item.summary}</p>
                 <p className="live-content-body">{item.body}</p>
               </details>
@@ -203,7 +214,7 @@ export function LiveContent({ permissions }: { permissions: string[] }) {
                     <Button
                       disabled={busy}
                       onClick={() => {
-                        if (confirm('Approve this medical content for public publication?'))
+                        if (confirm(tx('Approve this medical content for public publication?')))
                           transition('approved');
                       }}
                     >
@@ -218,7 +229,7 @@ export function LiveContent({ permissions }: { permissions: string[] }) {
                   <Button
                     disabled={busy}
                     onClick={() => {
-                      if (confirm('Publish this approved content publicly?')) transition('published');
+                      if (confirm(tx('Publish this approved content publicly?'))) transition('published');
                     }}
                   >
                     Publish
@@ -257,6 +268,7 @@ type Config = {
 };
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 export function LiveAdminSettings() {
+  const tx = useT();
   const [data, setData] = useState<Config | null>(null),
     [booking, setBooking] = useState(false),
     [online, setOnline] = useState(false),
@@ -269,7 +281,7 @@ export function LiveAdminSettings() {
     [minutes, setMinutes] = useState(30),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
-    [success, setSuccess] = useState('');
+    [success, setSuccess] = useState<React.ReactNode>('');
   const lock = useRef(false);
   async function refresh() {
     const c = await api<Config>('staff/admin-config');
@@ -289,7 +301,7 @@ export function LiveAdminSettings() {
     try {
       const result = await fn();
       await refresh();
-      setSuccess(typeof result === 'number' ? `${result} slots generated.` : msg);
+      setSuccess(typeof result === 'number' ? <T en="{0} slots generated." values={[result]} /> : msg);
     } catch (e) {
       setError(message(e));
     } finally {
@@ -307,25 +319,45 @@ export function LiveAdminSettings() {
     <div className="stack">
       {error && (
         <div role="alert" className="form-error">
-          {error}
+          <L en={error} />
         </div>
       )}
       {success && <Notice tone="success">{success}</Notice>}
       {data && (
         <>
           <section className="surface live-panel stack">
-            <h2>Booking controls</h2>
+            <h2>
+              <L en={'Booking controls'} />
+            </h2>
             <Notice>
               Enable only after the hospital notice, actual doctor profiles, SMS and payment configuration
               have been verified.
             </Notice>
             <label className="check-field">
-              <input type="checkbox" checked={booking} onChange={(e) => setBooking(e.target.checked)} />{' '}
-              Enable online appointment booking
+              <T
+                en={'{0} Enable online appointment booking'}
+                values={[
+                  <input
+                    key="v0"
+                    type="checkbox"
+                    checked={booking}
+                    onChange={(e) => setBooking(e.target.checked)}
+                  />,
+                ]}
+              />
             </label>
             <label className="check-field">
-              <input type="checkbox" checked={online} onChange={(e) => setOnline(e.target.checked)} /> Enable
-              online Razorpay payments
+              <T
+                en={'{0} Enable online Razorpay payments'}
+                values={[
+                  <input
+                    key="v0"
+                    type="checkbox"
+                    checked={online}
+                    onChange={(e) => setOnline(e.target.checked)}
+                  />,
+                ]}
+              />
             </label>
             <Button
               disabled={busy}
@@ -337,13 +369,15 @@ export function LiveAdminSettings() {
             </Button>
           </section>
           <section className="surface live-panel stack">
-            <h2>Doctor settings & weekly schedules</h2>
+            <h2>
+              <L en={'Doctor settings & weekly schedules'} />
+            </h2>
             <Field label="Doctor">
               <select value={doctor} onChange={(e) => selectDoctor(e.target.value)}>
-                <option value="">Select doctor</option>
+                <option value="">{tx('Select doctor')}</option>
                 {data.doctors.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.name} · {rupees(d.feePaise)}
+                    {tx(String(d.name))} · {rupees(d.feePaise)}
                   </option>
                 ))}
               </select>
@@ -361,12 +395,17 @@ export function LiveAdminSettings() {
                   />
                 </Field>
                 <label className="check-field">
-                  <input
-                    type="checkbox"
-                    checked={published}
-                    onChange={(e) => setPublished(e.target.checked)}
-                  />{' '}
-                  Publish verified doctor in booking directory
+                  <T
+                    en={'{0} Publish verified doctor in booking directory'}
+                    values={[
+                      <input
+                        key="v0"
+                        type="checkbox"
+                        checked={published}
+                        onChange={(e) => setPublished(e.target.checked)}
+                      />,
+                    ]}
+                  />
                 </label>
                 <Button
                   disabled={busy || fee === '' || Number(fee) < 0 || !Number.isFinite(Number(fee))}
@@ -384,13 +423,15 @@ export function LiveAdminSettings() {
                 >
                   Save doctor settings
                 </Button>
-                <h3>Add weekly availability</h3>
+                <h3>
+                  <L en={'Add weekly availability'} />
+                </h3>
                 <div className="form-grid">
                   <Field label="Day">
                     <select value={weekday} onChange={(e) => setWeekday(+e.target.value)}>
                       {weekdays.map((d, i) => (
                         <option key={d} value={i}>
-                          {d}
+                          {tx(String(d))}
                         </option>
                       ))}
                     </select>
@@ -429,10 +470,13 @@ export function LiveAdminSettings() {
                       <div className="live-card-head" key={s.id}>
                         <div>
                           <strong>
-                            {weekdays[s.weekday]} · {s.start.slice(0, 5)}–{s.end.slice(0, 5)}
+                            <L en={weekdays[s.weekday]} /> · {s.start.slice(0, 5)}–{s.end.slice(0, 5)}
                           </strong>
                           <p>
-                            {s.minutes} minutes · {s.active ? 'Active' : 'Inactive'}
+                            <T
+                              en={'{0} minutes · {1}'}
+                              values={[s.minutes, <L key="v1" en={s.active ? 'Active' : 'Inactive'} />]}
+                            />
                           </p>
                         </div>
                         {s.active && (
@@ -440,7 +484,7 @@ export function LiveAdminSettings() {
                             variant="secondary"
                             disabled={busy}
                             onClick={() => {
-                              if (confirm('Disable future empty slots? Existing bookings will remain.'))
+                              if (confirm(tx('Disable future empty slots? Existing bookings will remain.')))
                                 void run(
                                   () => api('staff/schedule/disable', { id: s.id }),
                                   'Schedule disabled. Existing bookings require review.',
@@ -455,7 +499,9 @@ export function LiveAdminSettings() {
                 </div>
               </>
             )}
-            <h3>Generate availability</h3>
+            <h3>
+              <L en={'Generate availability'} />
+            </h3>
             <Button
               disabled={busy}
               onClick={() => void run(() => api('staff/generate', {}), 'Slots generated.')}
@@ -486,11 +532,12 @@ type RefundRow = {
   cancellation_deduction_paise?: number | null;
 };
 export function LiveRefunds() {
+  const tx = useT();
   const [rows, setRows] = useState<RefundRow[]>([]),
     [reason, setReason] = useState<Record<string, string>>({}),
     [providerId, setProviderId] = useState<Record<string, string>>({}),
     [error, setError] = useState(''),
-    [success, setSuccess] = useState(''),
+    [success, setSuccess] = useState<React.ReactNode>(''),
     [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const refresh = async () => setRows(await api<RefundRow[]>('staff/refunds'));
@@ -516,7 +563,9 @@ export function LiveRefunds() {
   }
   return (
     <section className="surface live-panel stack">
-      <h2>Payment reconciliation & refunds</h2>
+      <h2>
+        <L en={'Payment reconciliation & refunds'} />
+      </h2>
       <Notice>
         Only cancelled visits, late captures and duplicate captures are eligible here. Patient-requested
         policy refunds use the saved deduction and refund amount. Other reviewed refunds return the original
@@ -524,18 +573,22 @@ export function LiveRefunds() {
       </Notice>
       {error && (
         <div role="alert" className="form-error">
-          {error}
+          <L en={error} />
         </div>
       )}
       {success && <Notice tone="success">{success}</Notice>}
-      {rows.length === 0 && <p>No refund or reconciliation records.</p>}
+      {rows.length === 0 && (
+        <p>
+          <L en={'No refund or reconciliation records.'} />
+        </p>
+      )}
       {rows.map((r) => (
         <article className="surface live-panel stack" key={r.id}>
           <div className="live-card-head">
             <div>
               <strong className="break-ref">{r.reference}</strong>
               <p>
-                {rupees(r.amount_paise)} · {human(r.appointment_status)}
+                {rupees(r.amount_paise)} · <L en={human(r.appointment_status)} />
               </p>
               <p className="break-ref">{r.provider_payment_id}</p>
             </div>
@@ -548,10 +601,10 @@ export function LiveRefunds() {
                   value={reason[r.id] || 'cancelled_visit'}
                   onChange={(e) => setReason((v) => ({ ...v, [r.id]: e.target.value }))}
                 >
-                  <option value="cancelled_visit">Cancelled visit</option>
-                  <option value="late_capture">Late payment capture</option>
-                  <option value="duplicate_capture">Duplicate capture</option>
-                  <option value="other_review">Other reviewed reason</option>
+                  <option value="cancelled_visit">{tx('Cancelled visit')}</option>
+                  <option value="late_capture">{tx('Late payment capture')}</option>
+                  <option value="duplicate_capture">{tx('Duplicate capture')}</option>
+                  <option value="other_review">{tx('Other reviewed reason')}</option>
                 </select>
               </Field>
               <Button
@@ -559,7 +612,10 @@ export function LiveRefunds() {
                 onClick={() => {
                   if (
                     confirm(
-                      `Approve a Razorpay refund of ${rupees(r.refund_amount_paise ?? r.amount_paise)} to the original payment method?`,
+                      tx('Approve a Razorpay refund of {0} to the original payment method?').replace(
+                        '{0}',
+                        rupees(r.refund_amount_paise ?? r.amount_paise),
+                      ),
                     )
                   )
                     void run(() =>
@@ -570,14 +626,17 @@ export function LiveRefunds() {
                     );
                 }}
               >
-                Approve & request {rupees(r.refund_amount_paise ?? r.amount_paise)} refund
+                <T
+                  en={'Approve & request {0} refund'}
+                  values={[rupees(r.refund_amount_paise ?? r.amount_paise)]}
+                />
               </Button>
             </>
           ) : r.refund_status !== 'processed' ? (
             <>
               <Field label="Provider refund ID (optional, for manual reconciliation)">
                 <input
-                  placeholder="rfnd_…"
+                  placeholder={tx('rfnd_…')}
                   value={providerId[r.id] || r.provider_refund_id || ''}
                   readOnly={!!r.provider_refund_id}
                   onChange={(e) => setProviderId((v) => ({ ...v, [r.id]: e.target.value }))}
@@ -599,7 +658,9 @@ export function LiveRefunds() {
               </Button>
             </>
           ) : (
-            <p>Refund verified as processed.</p>
+            <p>
+              <L en={'Refund verified as processed.'} />
+            </p>
           )}
         </article>
       ))}

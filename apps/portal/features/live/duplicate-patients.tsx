@@ -2,8 +2,8 @@
 // Duplicate patients and merges (migration 023). Business rules: docs/BUSINESS_RULES.md section 10.
 // The server enforces every rule (permissions, second person, ID check, oldest UHID survives).
 import { useEffect, useRef, useState } from 'react';
-import { Badge, Button, Field, Notice } from '@hms/ui';
-import { human, message, when } from './client';
+import { Badge, Button, Field, Notice, L, T, When, useT, Localized } from '@hms/ui';
+import { human, message } from './client';
 import { v3 } from './v3-client';
 
 type Summary = {
@@ -89,9 +89,9 @@ const demoB: Summary = {
 function useTask() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
-    [done, setDone] = useState('');
+    [done, setDone] = useState<React.ReactNode>('');
   const lock = useRef(false);
-  const run = async (task: () => Promise<string>) => {
+  const run = async (task: () => Promise<React.ReactNode>) => {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
@@ -110,7 +110,7 @@ function useTask() {
     <>
       {error && (
         <div className="form-error" role="alert">
-          {error}
+          <L en={error} />
         </div>
       )}
       {done && <Notice tone="success">{done}</Notice>}
@@ -122,17 +122,35 @@ function useTask() {
 function Person({ p, label }: { p: Summary; label?: string }) {
   return (
     <div className="ops-item stack">
-      {label && <span className="ops-muted">{label}</span>}
+      {label && (
+        <span className="ops-muted">
+          <L en={label} />
+        </span>
+      )}
       <strong>
         {p.name} · <span className="break-ref">{p.mrn}</span>
       </strong>
       <p>
-        DOB {p.birthDate || 'not recorded'} · {p.gender ? human(p.gender) : 'gender not recorded'} · mobile
-        ending {p.phoneLast4 || '—'}
+        <T
+          en={'DOB {0} · {1} · mobile ending {2}'}
+          values={[
+            p.birthDate || <L en={'not recorded'} />,
+            p.gender ? <L en={human(p.gender)} /> : <L en={'gender not recorded'} />,
+            p.phoneLast4 || '—',
+          ]}
+        />
       </p>
       <p>
-        Registered {when(p.registeredAt)} · {p.visits} visit{p.visits === 1 ? '' : 's'}
-        {p.lastVisit ? `, last ${when(p.lastVisit)}` : ''}
+        <T
+          en={p.visits === 1 ? 'Registered {0} · 1 visit' : 'Registered {0} · {1} visits'}
+          values={[<When key="r" iso={p.registeredAt} />, p.visits]}
+        />
+        {p.lastVisit && (
+          <>
+            {' · '}
+            <T en="last visit {0}" values={[<When key="l" iso={p.lastVisit} />]} />
+          </>
+        )}
         {p.onlineAccount && (
           <>
             {' '}
@@ -153,7 +171,7 @@ function FlagRow({
   f: Flag;
   demo: boolean;
   onDone: () => Promise<void>;
-  say: (m: string) => void;
+  say: (m: React.ReactNode) => void;
 }) {
   const [mode, setMode] = useState<'' | 'merge' | 'dismiss'>(''),
     [note, setNote] = useState('');
@@ -166,7 +184,7 @@ function FlagRow({
           {f.level === 'likely' ? 'Likely the same person' : 'Possibly the same person'}
         </Badge>
         <span className="ops-muted">
-          {sourceLabel[f.source] || human(f.source)} · {when(f.createdAt)}
+          <L en={sourceLabel[f.source] || human(f.source)} /> · <When iso={f.createdAt} />
         </span>
       </div>
       <div className="form-grid">
@@ -194,8 +212,11 @@ function FlagRow({
         <div className="stack" role="group" aria-label={mode === 'merge' ? 'Propose merge' : 'Dismiss match'}>
           {mode === 'merge' && (
             <p>
-              The record registered first keeps its UHID. The other UHID will still find the patient. An
-              administrator must approve after checking the patient&apos;s ID.
+              <L
+                en={
+                  "The record registered first keeps its UHID. The other UHID will still find the patient. An administrator must approve after checking the patient's ID."
+                }
+              />
             </p>
           )}
           <Field
@@ -260,8 +281,9 @@ function PendingRow({
   demo: boolean;
   canApprove: boolean;
   onDone: () => Promise<void>;
-  say: (m: string) => void;
+  say: (m: React.ReactNode) => void;
 }) {
+  const tx = useT();
   const [decision, setDecision] = useState<'' | 'approve' | 'reject'>(''),
     [idCheck, setIdCheck] = useState(''),
     [choices, setChoices] = useState<Record<string, 'survivor' | 'merged'>>({}),
@@ -277,8 +299,10 @@ function PendingRow({
   return (
     <div className="ops-item stack">
       <p>
-        Proposed by {m.proposedBy} on {when(m.proposedAt)}
-        {m.note ? ` · "${m.note}"` : ''}
+        <T
+          en={'Proposed by {0} on {1}{2}'}
+          values={[m.proposedBy, <When key="v1" iso={m.proposedAt} />, m.note ? ` · "${m.note}"` : '']}
+        />
       </p>
       <div className="form-grid">
         <Person p={m.survivor} label="Keeps UHID" />
@@ -286,7 +310,9 @@ function PendingRow({
       </div>
       {m.mine ? (
         <>
-          <p className="ops-muted">You proposed this. A different administrator must approve it.</p>
+          <p className="ops-muted">
+            <L en={'You proposed this. A different administrator must approve it.'} />
+          </p>
           <Button
             variant="secondary"
             disabled={t.busy}
@@ -304,7 +330,9 @@ function PendingRow({
           </Button>
         </>
       ) : !canApprove ? (
-        <p className="ops-muted">Waiting for an administrator to approve.</p>
+        <p className="ops-muted">
+          <L en={'Waiting for an administrator to approve.'} />
+        </p>
       ) : !decision ? (
         <div className="form-grid">
           <Button onClick={() => setDecision('approve')}>Review and approve</Button>
@@ -313,20 +341,23 @@ function PendingRow({
           </Button>
         </div>
       ) : (
-        <div className="stack" role="group" aria-label="Merge decision">
+        <div className="stack" role="group" aria-label={tx('Merge decision')}>
           {decision === 'approve' && (
             <>
               <Notice tone="warning">
-                All visits, prescriptions, documents and the online account move to {m.survivor.mrn}. Check
-                the patient&apos;s identity document before approving. Record the document type only, never
-                its number.
+                <T
+                  en={
+                    "All visits, prescriptions, documents and the online account move to {0}. Check the patient's identity document before approving. Record the document type only, never its number."
+                  }
+                  values={[m.survivor.mrn]}
+                />
               </Notice>
               <Field label="Identity document checked">
                 <select value={idCheck} onChange={(e) => setIdCheck(e.target.value)}>
-                  <option value="">Choose document</option>
+                  <option value="">{tx('Choose document')}</option>
                   {idDocuments.map(([k, l]) => (
                     <option key={k} value={k}>
-                      {l}
+                      {tx(String(l))}
                     </option>
                   ))}
                 </select>
@@ -366,11 +397,16 @@ function PendingRow({
                       choices: decision === 'approve' && Object.keys(choices).length ? choices : null,
                       note: note.trim() || null,
                     });
-                  const msg = demo
-                    ? 'Demo only: nothing changed.'
-                    : decision === 'approve'
-                      ? `Merged into ${m.survivor.mrn}. ${m.merged.mrn} now finds the same patient.`
-                      : 'Merge rejected.';
+                  const msg = demo ? (
+                    'Demo only: nothing changed.'
+                  ) : decision === 'approve' ? (
+                    <T
+                      en="Merged into {0}. {1} now finds the same patient."
+                      values={[m.survivor.mrn, m.merged.mrn]}
+                    />
+                  ) : (
+                    'Merge rejected.'
+                  );
                   await onDone();
                   say(msg);
                   return '';
@@ -398,8 +434,9 @@ function RecentRow({
   demo: boolean;
   canApprove: boolean;
   onDone: () => Promise<void>;
-  say: (m: string) => void;
+  say: (m: React.ReactNode) => void;
 }) {
+  const tx = useT();
   const [undoing, setUndoing] = useState(false),
     [note, setNote] = useState('');
   const t = useTask();
@@ -415,8 +452,16 @@ function RecentRow({
         </Badge>
       </div>
       <p className="ops-muted">
-        {when(r.decidedAt)}
-        {r.idCheck ? ` · ID checked: ${idDocuments.find(([k]) => k === r.idCheck)?.[1] || r.idCheck}` : ''}
+        <When iso={r.decidedAt} />
+        {r.idCheck && (
+          <>
+            {' · '}
+            <T
+              en="ID checked: {0}"
+              values={[<L key="d" en={idDocuments.find(([k]) => k === r.idCheck)?.[1] || r.idCheck} />]}
+            />
+          </>
+        )}
       </p>
       {r.canUndo && canApprove && !undoing && (
         <Button variant="secondary" onClick={() => setUndoing(true)}>
@@ -424,10 +469,12 @@ function RecentRow({
         </Button>
       )}
       {undoing && (
-        <div className="stack" role="group" aria-label="Undo merge">
+        <div className="stack" role="group" aria-label={tx('Undo merge')}>
           <p>
-            Everything that was moved returns to {r.mergedMrn}. Records added after the merge stay with{' '}
-            {r.survivorMrn}.
+            <T
+              en={'Everything that was moved returns to {0}. Records added after the merge stay with {1}.'}
+              values={[r.mergedMrn, r.survivorMrn]}
+            />
           </p>
           <Field label="Reason for undoing (required)">
             <input maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
@@ -461,10 +508,12 @@ function RecentRow({
 }
 
 /** Reception and administrators: review possible duplicates, propose, approve and undo merges. */
+
+/** Reception and administrators: review possible duplicates, propose, approve and undo merges. */
 export function DuplicatePatients({ demo = false, canApprove }: { demo?: boolean; canApprove: boolean }) {
   const [flags, setFlags] = useState<Flag[] | null>(null),
     [merges, setMerges] = useState<Merges | null>(null),
-    [outcome, setOutcome] = useState('');
+    [outcome, setOutcome] = useState<React.ReactNode>('');
   const t = useTask();
   const load = async () => {
     if (demo) {
@@ -518,7 +567,9 @@ export function DuplicatePatients({ demo = false, canApprove }: { demo?: boolean
   };
   return (
     <section className="surface ops-panel stack">
-      <h2>Duplicate patients</h2>
+      <h2>
+        <L en={'Duplicate patients'} />
+      </h2>
       <Notice>
         Records are never merged automatically. A shared mobile number alone is not treated as a match,
         because families often share one phone. Merges need a second person (an administrator) who checks the
@@ -526,12 +577,18 @@ export function DuplicatePatients({ demo = false, canApprove }: { demo?: boolean
       </Notice>
       {outcome && (
         <Notice tone="success">
-          <span role="status">{outcome}</span>
+          <span role="status">
+            <Localized>{outcome}</Localized>
+          </span>
         </Notice>
       )}
-      <h3>Possible duplicates</h3>
+      <h3>
+        <L en={'Possible duplicates'} />
+      </h3>
       {flags === null ? (
-        <p aria-busy="true">Loading…</p>
+        <p aria-busy="true">
+          <L en={'Loading…'} />
+        </p>
       ) : flags.length === 0 ? (
         <Notice tone="success">No possible duplicates to review.</Notice>
       ) : (
@@ -545,9 +602,13 @@ export function DuplicatePatients({ demo = false, canApprove }: { demo?: boolean
           />
         ))
       )}
-      <h3>Merges waiting for approval</h3>
+      <h3>
+        <L en={'Merges waiting for approval'} />
+      </h3>
       {!merges ? null : merges.pending.length === 0 ? (
-        <p className="ops-muted">None.</p>
+        <p className="ops-muted">
+          <L en={'None.'} />
+        </p>
       ) : (
         merges.pending.map((m) => (
           <PendingRow
@@ -564,12 +625,16 @@ export function DuplicatePatients({ demo = false, canApprove }: { demo?: boolean
           />
         ))
       )}
-      <h3>Recent merges</h3>
+      <h3>
+        <L en={'Recent merges'} />
+      </h3>
       {merges && (
         <p className="ops-muted">
-          {merges.undoDays === null
-            ? 'Merges can currently be undone at any time.'
-            : `Merges can be undone for ${merges.undoDays} days.`}
+          {merges.undoDays === null ? (
+            <L en={'Merges can currently be undone at any time.'} />
+          ) : (
+            <T en="Merges can be undone for {0} days." values={[merges.undoDays]} />
+          )}
         </p>
       )}
       {merges?.recent.map((r) => (

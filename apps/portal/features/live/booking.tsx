@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Brand, Button, Field, Notice, Badge, Icon, L } from '@hms/ui';
+import { Brand, Button, Field, Notice, Badge, Icon, L, T, When, useT } from '@hms/ui';
 import { api, localDay, when, rupees, human, message, type BookingRecord } from './client';
 import { CancelBookingButton, PolicyExplanation } from './manage-booking';
 import { v3, type CancellationPolicy } from './v3-client';
@@ -113,7 +113,7 @@ export function BookingRecords({
     <div className="stack">
       {err && (
         <div role="alert" className="form-error">
-          {err}
+          <L en={err} />
         </div>
       )}
       {rows.length === 0 && (
@@ -127,7 +127,7 @@ export function BookingRecords({
             <div>
               <h3>{r.doctor}</h3>
               <p>
-                {when(r.startsAt)} · {r.patient}
+                <When iso={r.startsAt} /> · {r.patient}
               </p>
             </div>
             <Badge tone={r.status === 'confirmed' ? 'green' : r.status === 'held' ? 'amber' : 'neutral'}>
@@ -150,7 +150,9 @@ export function BookingRecords({
             <dt>
               <L en="Payment" />
             </dt>
-            <dd>{human(r.paymentStatus)}</dd>
+            <dd>
+              <L en={human(r.paymentStatus)} />
+            </dd>
             <dt>
               <L en="Invoice reference" />
             </dt>
@@ -158,7 +160,10 @@ export function BookingRecords({
           </dl>
           {r.status === 'held' && r.expiresAt && (
             <p className="text-sm">
-              Slot held until {when(r.expiresAt)}. Confirmation requires captured payment.
+              <T
+                en={'Slot held until {0}. Confirmation requires captured payment.'}
+                values={[<When key="v0" iso={r.expiresAt} />]}
+              />
             </p>
           )}
           {['needs_review', 'order_pending_review'].includes(r.paymentStatus) && (
@@ -206,6 +211,7 @@ export function LiveBooking({
   noticeVersion: string;
   noticeUrl: string;
 }) {
+  const tx = useT();
   const [policy, setPolicy] = useState<CancellationPolicy | null>(null),
     [policyAccepted, setPolicyAccepted] = useState(false);
   const [catalog, setCatalog] = useState<Catalog | null>(null),
@@ -376,7 +382,7 @@ export function LiveBooking({
         </ol>
         {error && (
           <div className="form-error" role="alert">
-            {error}
+            <L en={error} />
           </div>
         )}
         {catalog === null && (
@@ -411,7 +417,7 @@ export function LiveBooking({
                       </option>
                       {catalog.doctors.map((x) => (
                         <option key={x.id} value={x.id}>
-                          {x.name} — {x.specialty}
+                          {tx(String(x.name))} — {tx(String(x.specialty))}
                         </option>
                       ))}
                     </select>
@@ -437,15 +443,14 @@ export function LiveBooking({
                         key={s.id}
                         onClick={() => setSlot(s.id)}
                       >
-                        {new Intl.DateTimeFormat('en-IN', {
-                          timeZone: 'Asia/Kolkata',
-                          timeStyle: 'short',
-                        }).format(new Date(s.startsAt))}
+                        <When iso={s.startsAt} format={{ timeStyle: 'short' }} />
                       </button>
                     ))}
                   </div>
                   {slotLoading ? (
-                    <p>Checking availability…</p>
+                    <p>
+                      <L en={'Checking availability…'} />
+                    </p>
                   ) : (
                     slots.length === 0 && (
                       <Notice>
@@ -704,7 +709,7 @@ export function LiveBooking({
               <h3>
                 <L en="Appointment summary" />
               </h3>
-              <p>{d?.name || 'Select a doctor'}</p>
+              <p>{d?.name || <L en={'Select a doctor'} />}</p>
               <p>{d?.specialty}</p>
               <div className="review-row">
                 <span>
@@ -716,7 +721,7 @@ export function LiveBooking({
                 <span>
                   <L en="Time" />
                 </span>
-                <strong>{chosen ? when(chosen.startsAt) : 'Not selected'}</strong>
+                <strong>{chosen ? <When iso={chosen.startsAt} /> : <L en={'Not selected'} />}</strong>
               </div>
               <div className="summary-total">
                 <span>
@@ -752,7 +757,7 @@ export function MyBookings({ websiteUrl }: { websiteUrl: string }) {
   return (
     <main id="main" className="booking-container stack">
       <a className="back-link" href="/patient">
-        Patient records &amp; preferences
+        <L en={'Patient records & preferences'} />
       </a>
       <Brand name={process.env.NEXT_PUBLIC_HOSPITAL_NAME || 'Hospital'} href={websiteUrl} />
       <div className="live-card-head">
@@ -776,7 +781,7 @@ export function MyBookings({ websiteUrl }: { websiteUrl: string }) {
       </div>
       {error && (
         <Notice tone="warning">
-          {error}{' '}
+          <L en={error} />{' '}
           <a href="/book" className="back-link">
             <L en="Verify your mobile to continue." />
           </a>

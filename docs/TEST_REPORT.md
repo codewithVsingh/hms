@@ -1,6 +1,6 @@
 # Test report
 
-Branch `feature/hms-audit-security-hardening`, run on 24–25 Nov 2026. Every result below was actually executed. Nothing here is estimated.
+Branch `feature/hms-audit-security-hardening`, run on 24–25 Nov 2026 (re-run in full on 25 Nov after the Hindi work). Every result below was actually executed. Nothing here is estimated.
 
 ## Results
 
@@ -12,7 +12,8 @@ Branch `feature/hms-audit-security-hardening`, run on 24–25 Nov 2026. Every re
 | Static security tests | `pnpm test:security` | local + CI | 9/9 pass |
 | Type check | `pnpm typecheck` | local + CI | Pass (2 apps) |
 | Production build | `pnpm build` | local + CI | Pass (website 29 static pages; portal) |
-| Browser E2E (demo mode) | `pnpm test` | local (system Chrome) + CI | 60/60 pass (20 tests × desktop, mobile, tablet) |
+| Browser E2E (demo mode) | `pnpm test` | local (Chromium) + CI | 69/69 pass (23 tests × desktop, mobile, tablet), including `tests/hindi.spec.ts` |
+| Hindi coverage crawl | one-off Playwright crawl of 54 website and portal pages with `?lang=hi` (not committed) | local | English text left on screen: 641 occurrences / 123 distinct (was 2,009 / 605). What remains is names, UHIDs and references, the brand, sample clinical data, and demo CMS content (by design or pending decision) |
 | Database: fresh install | `supabase/tests/local/run.sh` | local PG 16.15 + CI `postgres:16` | Migrations 001–023 apply (012 failed before the fix) |
 | Database: verify scripts | same | local + CI | baseline, duplicates, live, phase3, phase4 pass |
 | Database: behaviour T1–T9, T11–T15 | same | local + CI | All pass |
@@ -48,7 +49,8 @@ Mutation checks proved the tests can fail: removing the `sameOrigin` CSRF guard 
 - Razorpay test-mode end to end, with real webhooks and refunds.
 - Patient history retrieval and document upload access (13, 17): code reviewed, DB tests to add.
 - Live (non-demo) screens for reception registration and online booking with date of birth: covered at database level (T15); browser tests run in demo mode only.
-- Hindi switching, PWA installation, accessibility audit (19, 20, 23): partly covered by existing E2E; a dedicated axe/Lighthouse pass is pending.
+- Hindi (19): covered by `tests/hindi.spec.ts` (new screens, old workspace, booking date chips, website, redirect keeps language) and the crawl above. Native-speaker and clinician review is not a test and is still needed.
+- PWA installation, accessibility audit (20, 23): partly covered by existing E2E; a dedicated axe/Lighthouse pass is pending.
 - Reports and exports (24).
 
 ## How to run locally

@@ -17,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en-IN">
       <body>
         <a href="#main" className="skip-link">
-          Skip to content
+          <L en={'Skip to content'} />
         </a>
         <div className="portal-language-bar">
           <small>

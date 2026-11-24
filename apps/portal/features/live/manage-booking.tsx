@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
-import { Brand, Button, Field, Notice, Badge, Icon, L, useLanguage, LanguageLink } from '@hms/ui';
-import { api, message, rupees, when, human, type BookingRecord } from './client';
+import { Brand, Button, Field, Notice, Badge, Icon, L, useLanguage, LanguageLink, When, useT } from '@hms/ui';
+import { api, message, rupees, human, type BookingRecord } from './client';
 import { v3, type CancellationQuote, type CancellationPolicy } from './v3-client';
 import { Captcha } from './captcha';
 export function PolicyExplanation({ policy }: { policy: CancellationPolicy }) {
@@ -163,7 +163,7 @@ export function CancelBookingButton({
       )}
       {error && (
         <div className="form-error" role="alert">
-          {error}
+          <L en={error} />
         </div>
       )}
       {result?.cancelled && (
@@ -269,6 +269,7 @@ export function CancelBookingButton({
   );
 }
 export function ManageBooking({ websiteUrl, demo = false }: { websiteUrl: string; demo?: boolean }) {
+  const tx = useT();
   const [phone, setPhone] = useState('+91'),
     [code, setCode] = useState(''),
     [token, setToken] = useState(''),
@@ -469,7 +470,7 @@ export function ManageBooking({ websiteUrl, demo = false }: { websiteUrl: string
                   setRow(null);
                   setSearched(false);
                 }}
-                placeholder="BK-00012A7"
+                placeholder={tx('BK-00012A7')}
               />
             </Field>
             <Field label="Patient number or full name">
@@ -484,7 +485,7 @@ export function ManageBooking({ websiteUrl, demo = false }: { websiteUrl: string
                   setRow(null);
                   setSearched(false);
                 }}
-                placeholder="PT-000127"
+                placeholder={tx('PT-000127')}
               />
             </Field>
             <Button
@@ -505,7 +506,7 @@ export function ManageBooking({ websiteUrl, demo = false }: { websiteUrl: string
           )}
           {error && (
             <div className="form-error" role="alert">
-              {error}
+              <L en={error} />
             </div>
           )}
         </section>
@@ -533,7 +534,9 @@ export function ManageBooking({ websiteUrl, demo = false }: { websiteUrl: string
               <dt>
                 <L en="Date" />
               </dt>
-              <dd>{when(row.startsAt)}</dd>
+              <dd>
+                <When iso={row.startsAt} />
+              </dd>
               <dt>
                 <L en="Payment" />
               </dt>

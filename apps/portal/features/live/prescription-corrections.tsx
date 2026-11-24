@@ -2,8 +2,8 @@
 // Prescription corrections (migration 022). Business rules: docs/BUSINESS_RULES.md section 7.
 // The server enforces every rule; these screens only offer the actions that can succeed.
 import { useEffect, useRef, useState } from 'react';
-import { Badge, Button, Field, Notice } from '@hms/ui';
-import { human, message, when } from './client';
+import { Badge, Button, Field, Notice, L, T, When, useT } from '@hms/ui';
+import { human, message } from './client';
 import { v3 } from './v3-client';
 
 export type RxItem = {
@@ -62,9 +62,9 @@ const label = (list: [string, string][], key: string | null) =>
 function useTask() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
-    [done, setDone] = useState('');
+    [done, setDone] = useState<React.ReactNode>('');
   const lock = useRef(false);
-  const run = async (task: () => Promise<string>) => {
+  const run = async (task: () => Promise<React.ReactNode>) => {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
@@ -83,7 +83,7 @@ function useTask() {
     <>
       {error && (
         <div className="form-error" role="alert">
-          {error}
+          <L en={error} />
         </div>
       )}
       {done && <Notice tone="success">{done}</Notice>}
@@ -91,6 +91,8 @@ function useTask() {
   );
   return { busy, run, feedback };
 }
+
+/** Status line shown on every prescription: version, what it replaces, and validity. */
 
 /** Status line shown on every prescription: version, what it replaces, and validity. */
 export function RxStatusBadges({ rx }: { rx: RxCorrectable }) {
@@ -101,12 +103,17 @@ export function RxStatusBadges({ rx }: { rx: RxCorrectable }) {
       {rx.withdrawalPending && <Badge tone="amber">Withdrawal pending</Badge>}
       {rx.replaces && (
         <Badge tone="blue">
-          Updated · replaces version {rx.replaces.version} of {when(rx.replaces.issuedAt)}
+          <T
+            en={'Updated · replaces version {0} of {1}'}
+            values={[rx.replaces.version, <When key="v1" iso={rx.replaces.issuedAt} />]}
+          />
         </Badge>
       )}
     </>
   );
 }
+
+/** Doctor actions on one prescription: amend, request withdrawal, view history. */
 
 /** Doctor actions on one prescription: amend, request withdrawal, view history. */
 export function RxCorrections({
@@ -118,6 +125,7 @@ export function RxCorrections({
   demo?: boolean;
   onChanged: () => Promise<void>;
 }) {
+  const tx = useT();
   const [mode, setMode] = useState<'' | 'amend' | 'withdraw' | 'history'>(''),
     [items, setItems] = useState<RxItem[]>(
       rx.items.map((i) => ({ ...i, instructions: i.instructions || '' })),
@@ -173,18 +181,30 @@ export function RxCorrections({
       </div>
       {canCorrect && openedAt !== null && !windowOpen && rx.amendUntil && (
         <p className="ops-muted">
-          Amendment window closed on {when(rx.amendUntil)}. Write a new prescription for further changes.
+          <T
+            en={'Amendment window closed on {0}. Write a new prescription for further changes.'}
+            values={[<When key="v0" iso={rx.amendUntil} />]}
+          />
         </p>
       )}
       {canCorrect && windowOpen && rx.amendUntil && (
-        <p className="ops-muted">You can amend this prescription until {when(rx.amendUntil)}.</p>
+        <p className="ops-muted">
+          <T
+            en={'You can amend this prescription until {0}.'}
+            values={[<When key="v0" iso={rx.amendUntil} />]}
+          />
+        </p>
       )}
 
       {mode === 'amend' && (
         <div className="ops-item stack" role="group" aria-label={`Amend prescription version ${rx.version}`}>
           <Notice>
-            Amending creates version {rx.version + 1}. Version {rx.version} stays in the record, marked as
-            superseded. The patient sees only the new version and is notified.
+            <T
+              en={
+                'Amending creates version {0}. Version {1} stays in the record, marked as superseded. The patient sees only the new version and is notified.'
+              }
+              values={[rx.version + 1, rx.version]}
+            />
           </Notice>
           {items.map((r, i) => (
             <div className="ops-prescription-row" key={i}>
@@ -222,10 +242,10 @@ export function RxCorrections({
           </Field>
           <Field label="Reason for amendment">
             <select value={reason} onChange={(e) => setReason(e.target.value)}>
-              <option value="">Choose reason</option>
+              <option value="">{tx('Choose reason')}</option>
               {amendReasons.map(([k, l]) => (
                 <option key={k} value={k}>
-                  {l}
+                  {tx(String(l))}
                 </option>
               ))}
             </select>
@@ -234,8 +254,17 @@ export function RxCorrections({
             <textarea rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
           </Field>
           <label className="check-field">
-            <input type="checkbox" checked={attest} onChange={(e) => setAttest(e.target.checked)} /> I have
-            reviewed the complete amended prescription and authorize issuance.
+            <T
+              en={'{0} I have reviewed the complete amended prescription and authorize issuance.'}
+              values={[
+                <input
+                  key="v0"
+                  type="checkbox"
+                  checked={attest}
+                  onChange={(e) => setAttest(e.target.checked)}
+                />,
+              ]}
+            />
           </label>
           <div className="form-grid">
             <Button variant="secondary" onClick={reset}>
@@ -267,9 +296,16 @@ export function RxCorrections({
                   });
                   reset();
                   await onChanged();
-                  return r.paperCopyToRecall
-                    ? `Version ${r.version} issued. A paper copy of the old version was handed out: reception will see it in the recall list.`
-                    : `Version ${r.version} issued.`;
+                  return (
+                    <T
+                      en={
+                        r.paperCopyToRecall
+                          ? 'Version {0} issued. A paper copy of the old version was handed out: reception will see it in the recall list.'
+                          : 'Version {0} issued.'
+                      }
+                      values={[r.version]}
+                    />
+                  );
                 })
               }
             >
@@ -292,10 +328,10 @@ export function RxCorrections({
           </Notice>
           <Field label="Reason for withdrawal">
             <select value={reason} onChange={(e) => setReason(e.target.value)}>
-              <option value="">Choose reason</option>
+              <option value="">{tx('Choose reason')}</option>
               {withdrawReasons.map(([k, l]) => (
                 <option key={k} value={k}>
-                  {l}
+                  {tx(String(l))}
                 </option>
               ))}
             </select>
@@ -329,18 +365,34 @@ export function RxCorrections({
       )}
 
       {mode === 'history' && history && (
-        <div className="ops-item stack" aria-label="Prescription version history">
-          {history.length === 0 && <p>No earlier versions.</p>}
+        <div className="ops-item stack" aria-label={tx('Prescription version history')}>
+          {history.length === 0 && (
+            <p>
+              <L en={'No earlier versions.'} />
+            </p>
+          )}
           {history.map((h) => (
             <div key={h.id} className="stack">
               <strong>
-                Version {h.version} · {human(h.status === 'void' ? 'withdrawn' : h.status)} ·{' '}
-                {h.issuedAt ? when(h.issuedAt) : ''}
+                <T
+                  en={'Version {0} · {1} · {2}'}
+                  values={[
+                    h.version,
+                    <L key="v1" en={human(h.status === 'void' ? 'withdrawn' : h.status)} />,
+                    h.issuedAt ? <When iso={h.issuedAt} /> : '',
+                  ]}
+                />
               </strong>
               {h.amendReason && (
                 <p>
-                  Amended by {h.amendedBy || 'doctor'}: {label(amendReasons, h.amendReason)}
-                  {h.amendNote ? ` (${h.amendNote})` : ''}
+                  <T
+                    en={'Amended by {0}: {1}{2}'}
+                    values={[
+                      h.amendedBy || <L en={'doctor'} />,
+                      <L key="r" en={label(amendReasons, h.amendReason)} />,
+                      h.amendNote ? ` (${h.amendNote})` : '',
+                    ]}
+                  />
                 </p>
               )}
               <ul>
@@ -353,9 +405,27 @@ export function RxCorrections({
               </ul>
               {h.withdrawals.map((w, k) => (
                 <p key={k} className="ops-muted">
-                  Withdrawal {human(w.status)}: {label(withdrawReasons, w.reason)}
-                  {w.note ? ` (${w.note})` : ''} · requested {when(w.requestedAt)}
-                  {w.decidedAt ? ` · decided ${when(w.decidedAt)} by ${w.decidedBy || 'reviewer'}` : ''}
+                  <T
+                    en="Withdrawal {0}: {1}"
+                    values={[
+                      <L key="s" en={human(w.status)} />,
+                      <L key="r" en={label(withdrawReasons, w.reason)} />,
+                    ]}
+                  />
+                  {w.note ? ` (${w.note})` : ''} ·{' '}
+                  <T en="requested {0}" values={[<When key="q" iso={w.requestedAt} />]} />
+                  {w.decidedAt && (
+                    <>
+                      {' · '}
+                      <T
+                        en="decided {0} by {1}"
+                        values={[
+                          <When key="d" iso={w.decidedAt} />,
+                          w.decidedBy || <L key="r" en="reviewer" />,
+                        ]}
+                      />
+                    </>
+                  )}
                   {w.decisionNote ? ` (${w.decisionNote})` : ''}
                 </p>
               ))}
@@ -416,33 +486,50 @@ function WithdrawalRow({
   demo: boolean;
   onDone: () => Promise<void>;
 }) {
+  const tx = useT();
   const [decision, setDecision] = useState<'' | 'approve' | 'reject'>(''),
     [note, setNote] = useState('');
   const t = useTask();
   return (
     <div className="ops-item stack">
       <div>
-        <strong>
-          {w.patient} ({w.mrn})
-        </strong>{' '}
-        · prescription version {w.version} of {when(w.issuedAt)} by {w.doctor}
-        <p>
-          Reason: {label(withdrawReasons, w.reason)}
-          {w.note ? ` (${w.note})` : ''} · requested by {w.requestedBy} on {when(w.requestedAt)}
-        </p>
-        {w.items && (
-          <ul>
-            {w.items.map((i, k) => (
-              <li key={k}>
-                {i.medicine}: {i.dose}, {i.frequency}, {i.duration}
-              </li>
-            ))}
-          </ul>
-        )}
+        <T
+          en={'{0} · prescription version {1} of {2} by {3}{4}{5}'}
+          values={[
+            <strong key="v0">
+              {w.patient} ({w.mrn})
+            </strong>,
+            w.version,
+            <When key="v2" iso={w.issuedAt} />,
+            w.doctor,
+            <p key="reason">
+              <T
+                en="Reason: {0}{1} · requested by {2} on {3}"
+                values={[
+                  <L key="r" en={label(withdrawReasons, w.reason)} />,
+                  w.note ? ` (${w.note})` : '',
+                  w.requestedBy,
+                  <When key="w" iso={w.requestedAt} />,
+                ]}
+              />
+            </p>,
+            w.items && (
+              <ul>
+                {w.items.map((i, k) => (
+                  <li key={k}>
+                    {i.medicine}: {i.dose}, {i.frequency}, {i.duration}
+                  </li>
+                ))}
+              </ul>
+            ),
+          ]}
+        />
       </div>
       {w.mine ? (
         <>
-          <p className="ops-muted">You requested this. Another doctor or an administrator must confirm it.</p>
+          <p className="ops-muted">
+            <L en={'You requested this. Another doctor or an administrator must confirm it.'} />
+          </p>
           <Button
             variant="secondary"
             disabled={t.busy}
@@ -469,11 +556,15 @@ function WithdrawalRow({
           </Button>
         </div>
       ) : (
-        <div className="stack" role="group" aria-label="Withdrawal decision">
+        <div className="stack" role="group" aria-label={tx('Withdrawal decision')}>
           <p>
-            {decision === 'approve'
-              ? 'The prescription becomes permanently withdrawn: hidden from the patient (who is notified) and kept in the clinical record.'
-              : 'The prescription stays valid and becomes visible to the patient again.'}
+            <L
+              en={
+                decision === 'approve'
+                  ? 'The prescription becomes permanently withdrawn: hidden from the patient (who is notified) and kept in the clinical record.'
+                  : 'The prescription stays valid and becomes visible to the patient again.'
+              }
+            />
           </p>
           <Field label={decision === 'reject' ? 'Reason for rejecting (required)' : 'Note (optional)'}>
             <textarea rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
@@ -513,6 +604,8 @@ function WithdrawalRow({
 }
 
 /** Pending withdrawal requests for doctors (second opinion) and administrators. */
+
+/** Pending withdrawal requests for doctors (second opinion) and administrators. */
 export function RxWithdrawals({ demo = false }: { demo?: boolean }) {
   const [rows, setRows] = useState<PendingWithdrawal[] | null>(null);
   const t = useTask();
@@ -528,13 +621,17 @@ export function RxWithdrawals({ demo = false }: { demo?: boolean }) {
   }, [demo]);
   return (
     <section className="surface ops-panel stack">
-      <h2>Prescription withdrawal requests</h2>
+      <h2>
+        <L en={'Prescription withdrawal requests'} />
+      </h2>
       <Notice>
         A withdrawal needs a second person: you cannot confirm a request you made. Administrators see the
         reason but not the medicines.
       </Notice>
       {rows === null ? (
-        <p aria-busy="true">Loading…</p>
+        <p aria-busy="true">
+          <L en={'Loading…'} />
+        </p>
       ) : rows.length === 0 ? (
         <Notice tone="success">No pending requests.</Notice>
       ) : (

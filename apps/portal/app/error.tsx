@@ -1,6 +1,6 @@
 'use client';
 import { useEffect } from 'react';
-import { Button, Empty } from '@hms/ui';
+import { Button, Empty, T } from '@hms/ui';
 
 // Route error boundary: shows a generic message only. Error details (which may contain
 // identifiers or server messages) are never rendered; the digest lets operators find the log.
@@ -26,7 +26,11 @@ export default function RouteError({
           Back to sign in
         </Button>
       </div>
-      {error.digest && <p style={{ textAlign: 'center', fontSize: 13 }}>Reference: {error.digest}</p>}
+      {error.digest && (
+        <p style={{ textAlign: 'center', fontSize: 13 }}>
+          <T en={'Reference: {0}'} values={[error.digest]} />
+        </p>
+      )}
     </main>
   );
 }

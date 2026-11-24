@@ -1,5 +1,5 @@
 import { publicLive, hospitalName, hospitalAddress, hospitalPhone, hospitalHours } from '../lib/live';
-import { Brand, Button, Icon, L, LanguageSwitch, LanguageLink } from '@hms/ui';
+import { Aria, Brand, Button, Icon, L, LanguageSwitch, LanguageLink, T } from '@hms/ui';
 import { portalUrl } from '../lib/config';
 const nav = [
   ['Home', '/'],
@@ -16,9 +16,11 @@ export function WebsiteHeader() {
         <div className="site-container utility-inner">
           <span>
             <span className="live-dot" />{' '}
-            {publicLive
-              ? hospitalHours || 'Hospital information & appointments'
-              : 'Healthcare website preview • fictional information'}
+            {publicLive ? (
+              hospitalHours || <L en={'Hospital information & appointments'} />
+            ) : (
+              <L en={'Healthcare website preview • fictional information'} />
+            )}
           </span>
           <span className="utility-links">
             <LanguageLink href={`${portalUrl}/manage-booking`}>
@@ -38,23 +40,23 @@ export function WebsiteHeader() {
       <header className="site-header">
         <div className="site-container nav-inner">
           <Brand name={publicLive ? hospitalName : undefined} />
-          <nav aria-label="Main navigation" className="desktop-nav">
+          <Aria as="nav" label="Main navigation" className="desktop-nav">
             {nav.map(([label, href]) => (
               <a key={href} href={href}>
                 <L en={label} />
               </a>
             ))}
-          </nav>
+          </Aria>
           <div className="nav-actions">
             <LanguageSwitch />
             <Button href={`${portalUrl}/book`} icon="calendar">
               Book appointment
             </Button>
             <details className="mobile-menu">
-              <summary aria-label="Open navigation">
+              <Aria as="summary" label="Open navigation">
                 <Icon name="menu" size={24} />
-              </summary>
-              <nav aria-label="Mobile navigation">
+              </Aria>
+              <Aria as="nav" label="Mobile navigation">
                 {nav.map(([label, href]) => (
                   <a key={href} href={href}>
                     <L en={label} />
@@ -67,7 +69,7 @@ export function WebsiteHeader() {
                   <L en="Manage booking" />
                 </LanguageLink>
                 <Button href={`${portalUrl}/book`}>Book appointment</Button>
-              </nav>
+              </Aria>
             </details>
           </div>
         </div>
@@ -86,15 +88,21 @@ export function WebsiteFooter() {
               sub={publicLive ? 'Patient services' : 'A hospital website demo'}
             />
             <p>
-              {publicLive
-                ? hospitalAddress || 'Contact reception for information.'
-                : 'Designed for a simpler, more connected patient journey. All names and service information are fictional placeholders.'}
+              {publicLive ? (
+                hospitalAddress || <L en={'Contact reception for information.'} />
+              ) : (
+                <L
+                  en={
+                    'Designed for a simpler, more connected patient journey. All names and service information are fictional placeholders.'
+                  }
+                />
+              )}
             </p>
             {publicLive && hospitalPhone && (
               <a href={`tel:${hospitalPhone.replace(/[^+\d]/g, '')}`}>{hospitalPhone}</a>
             )}
             <span className="footer-label">
-              <Icon name="shield" size={16} /> Privacy-first design
+              <T en={'{0} Privacy-first design'} values={[<Icon key="v0" name="shield" size={16} />]} />
             </span>
           </div>
           <div>
@@ -118,7 +126,7 @@ export function WebsiteFooter() {
               <L en="Book appointment" />
             </LanguageLink>
             <a href={publicLive ? `${portalUrl}/my-bookings` : '/health-library/booking-guide'}>
-              {publicLive ? 'My appointments' : 'Booking guide'}
+              <L en={publicLive ? 'My appointments' : 'Booking guide'} />
             </a>
             <a href="/request-callback">
               <L en="Request a callback" />
@@ -137,7 +145,9 @@ export function WebsiteFooter() {
             <h3>
               <L en="Hospital operations" />
             </h3>
-            <p>Doctor, staff and administration workspace.</p>
+            <p>
+              <L en={'Doctor, staff and administration workspace.'} />
+            </p>
             <Button href={`${portalUrl}/login`} variant="secondary" icon="lock">
               Open HMS portal
             </Button>
@@ -145,12 +155,16 @@ export function WebsiteFooter() {
         </div>
         <div className="footer-bottom">
           <span>
-            © {new Date().getFullYear()} {publicLive ? hospitalName : 'Aarogya Care • Demo'}
+            © {new Date().getFullYear()} {publicLive ? hospitalName : <L en={'Aarogya Care • Demo'} />}
           </span>
           <span>
-            {publicLive
-              ? 'For emergencies, contact local emergency services.'
-              : 'Not a live healthcare provider. For emergencies, contact local emergency services.'}
+            <L
+              en={
+                publicLive
+                  ? 'For emergencies, contact local emergency services.'
+                  : 'Not a live healthcare provider. For emergencies, contact local emergency services.'
+              }
+            />
           </span>
         </div>
       </div>

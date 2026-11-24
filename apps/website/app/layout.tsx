@@ -1,3 +1,4 @@
+import { L } from '@hms/ui';
 import { publicLive, indexLive, hospitalName, hospitalDescription } from '../lib/live';
 import { WhatsAppContact } from '../components/whatsapp';
 import type { Metadata } from 'next';
@@ -27,7 +28,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <html lang="en-IN">
       <body>
         <a className="skip-link" href="#main">
-          Skip to content
+          <L en={'Skip to content'} />
         </a>
         <WebsiteHeader />
         <main id="main">{children}</main>
