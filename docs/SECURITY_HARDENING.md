@@ -35,6 +35,7 @@ What the codebase enforces, and the operator checklist for settings that live ou
 - [ ] Exposed schemas = `public` only (never add `hms` or `hms_private`)
 - [ ] `hms-private-documents` bucket is private, and no broad `storage.objects` policies exist
 - [ ] Network restrictions / SSL enforcement on; point-in-time recovery enabled
+- [ ] `pg_trgm` extension available (migration 023 creates it in `extensions`)
 - [ ] Run `supabase/tests/verify_*.sql` after migrating; all pass
 
 **Hosting**

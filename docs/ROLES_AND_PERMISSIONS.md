@@ -51,6 +51,13 @@ Patients are not a staff role. They act through a verified phone session, and ev
 - Version history: clinicians with a care assignment for the patient.
 - Mark a paper copy recalled: reception (`prescriptions.archive`).
 
+## Duplicate patients and merges (migration 023)
+
+- Check for look-alikes and register (with a reason when matches exist): reception (`patients.register`).
+- Review queue, "not the same person", propose a merge: reception or admin (roles with `patients.demographics.read` plus `patients.register` or `settings.manage`).
+- Approve, reject or undo a merge: **administrator** (`settings.manage`) who did not propose it.
+- Doctors: no access to the queue; their timeline shows only that a possible duplicate exists.
+
 ## Gaps and decisions pending
 
 - Nurse vitals entry (`vitals.write`): HMS-021.

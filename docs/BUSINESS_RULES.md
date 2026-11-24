@@ -17,6 +17,7 @@ Money is always in paise (₹1 = 100 paise) and currency is INR. Times are store
 | Consultation fee | Per doctor | Admin | Taken from the server at booking. The browser's amount is never trusted. |
 | Cancellation fee and free-cancellation window | ₹0, 24 hours | Admin | Versioned; see §5. |
 | Prescription amendment window | 72 hours | Database setting (`hospital_settings.rx_amend_hours`, 1–720) | See §7. |
+| Merge undo window | None (no limit) | Database setting (`hospital_settings.merge_undo_days`, empty or 1–3650) | See §10. Revisit after the first 3–6 months. |
 | Doctor published | No | Admin | Only published doctors appear on the website and accept online bookings. |
 
 Where: `hms_admin_settings`, `hms_admin_doctor`, `hms_v4_policy_set`. Test: T2.
@@ -34,7 +35,8 @@ Where: `hms_admin_settings`, `hms_admin_doctor`, `hms_v4_policy_set`. Test: T2.
 
 | Rule | Detail | Where | Test |
 |---|---|---|---|
-| Who can book online | Signed-in patient with a **verified mobile**, aged 18+ (declared), who accepts the current privacy notice | `hms_book_self` | T3 |
+| Who can book online | Signed-in patient with a **verified mobile**, aged 18+ (declared **and** checked against the date of birth), who accepts the current privacy notice | `hms_v7_book_self`, `hms_book_self` | T3, T15 |
+| Date of birth | **Required** for online booking (since migration 023). Stored on a new record, or filled in when the record has none. An existing date of birth is never overwritten by the patient. | `hms_v7_book_self` | T15 |
 | Name match | A returning patient must use the name on their record; otherwise reception helps | `hms_book_self` | — |
 | Booking horizon | Up to 30 days ahead (branch time zone) | `create_appointment` | — |
 | Slot validity | Slot enabled, in the future, inside the doctor's weekly schedule, not during leave, doctor active in the branch | `create_appointment` | T13 |
@@ -46,6 +48,7 @@ Where: `hms_admin_settings`, `hms_admin_doctor`, `hms_v4_policy_set`. Test: T2.
 | Pay online | Booking is **held for 10 minutes** for payment, then expires and frees the slot | `create_appointment`, `expire_slot_holds` | T3 |
 | Pay at hospital | Booking is confirmed straight away; the invoice stays open until collected | `create_appointment` | T6 |
 | Reception / walk-in booking | Reception books for a registered patient; always "pay at hospital"; idempotent per request | `hms_staff_book` | — |
+| New online record | If the booking creates a new patient record that looks like an existing one, it is flagged for reception **silently**. The patient never sees other records. | `hms_v7_book_self` | T15 |
 | Booking reference | `BK-` + 7 random characters from `23456789ABCDEFGHJKMNPQRSTUVWXYZ` (no 0/O/1/I/L); unique; not a secret | `assign_short_booking` | T11 |
 | Consent | Each booking and registration records a consent entry with the notice version | `create_appointment`, `hms_staff_register` | — |
 
@@ -131,14 +134,43 @@ Where: `hms_change_status`, `v3_queue_token`.
 
 Where: `hms_v3_reschedule`.
 
-## 10. Patients and records
+## 10. Patients, records and duplicates
 
+**Identity**
 - Every patient has a permanent **UHID** `PT-` + at least 6 digits (sequential, by decision). It is separate from booking references.
-- Reception registers walk-ins (name required, phone and date of birth optional, consent recorded).
-- Records are **never merged automatically**, not even on matching name or phone. Duplicate detection and reviewed merge are planned (HMS-018).
-- Staff search: name or UHID (partial), mobile (last 10 digits, any formatting) or booking reference (exact). Each search is audited **without storing the search text**. (T12)
-- Doctor timeline by UHID needs a care assignment; it is paginated (25 visits) and audited.
+- Reception registers walk-ins: name required; mobile, date of birth and gender optional; consent recorded.
 - Demographic corrections by reception are audited.
+
+**Search and timeline**
+- Staff search: name or UHID (partial), mobile (last 10 digits, any formatting), booking reference (exact) or a **former UHID** of a merged record. Each search is audited **without storing the search text**. (T12, T15)
+- Doctor timeline by UHID needs a care assignment; it is paginated (25 visits) and audited. A former UHID opens the surviving record and lists the former UHIDs. If an unresolved duplicate flag exists, the doctor sees only "may have another record, ask reception", with no details about the other record. (T15)
+
+**Duplicate detection** (decided 25 Nov 2026; migration 023)
+
+| Rule | Detail | Test |
+|---|---|---|
+| Never automatic | Nothing is ever merged without two people | T15 |
+| Name comparison | Titles (Mr, Mrs, Smt, Shri, Dr, Baby…) ignored; punctuation and word order ignored; common variants unified (Mohd/Md/Mohammad → Mohammed, Laxmi → Lakshmi, Kr → Kumar); repeated letters collapsed; "similar" = trigram similarity ≥ 0.45 | T15 |
+| **Likely** | Same mobile + similar name + same date of birth | T15 |
+| **Possible** | Same mobile + similar name + date of birth missing on one side, or day and month swapped; **or** similar name + same date of birth (different or no mobile) | T15 |
+| **Not a match** | Same mobile alone (families share phones) · different gender (both recorded) · both dates of birth known and different (not a swap) | T15 |
+| Reception registration | Before saving, matches are shown with UHID, name, date of birth, last visit and **only the last 4 digits** of the mobile. Reception picks **Use this patient**, or **Register new patient anyway** with a reason (5–300 characters), which is recorded against each match. The server refuses to register while matches exist and no reason is given (`POSSIBLE_DUPLICATE`). | T15 |
+| Review queue | Reception and admin see open flags (from online bookings and record checks), each pair side by side. **Not the same person** needs a reason. | T15 |
+
+**Merging**
+
+| Rule | Detail | Test |
+|---|---|---|
+| Who | **Proposed** by reception or an admin (roles that read branch demographics). **Approved only by an administrator** (`settings.manage`) who is **not** the proposer. Doctors can't see the queue or propose; they ask reception. | T15 |
+| ID check | The approver must record which identity document was checked (Aadhaar, PAN, passport, driving licence, voter ID, other government ID). **The document number is never stored.** | T15 |
+| Surviving UHID | The record **registered first always keeps its UHID**. The other UHID becomes an alias: searching or opening it finds the surviving record, so old paper files still work. | T15 |
+| What moves | Appointments (with their visits, notes, vitals, diagnoses, prescriptions and paper archives), care assignments, documents, history, consents, contacts the survivor lacks, the online account link, notification preferences the survivor hasn't set | T15 |
+| What stays | Prescriptions keep the patient name and UHID they were issued under (true historical record). Duplicate contacts and preferences stay on the merged record. | T15 |
+| Conflicting details | Where name, date of birth or gender differ, the approver chooses which value to keep; the default is the surviving record's. | T15 |
+| Blocked | Both records have separate verified online accounts (`BOTH_HAVE_ACCOUNTS`): two logins are treated as two people. Only one pending merge per patient at a time (`MERGE_PENDING`). | T15 |
+| Rejecting | Needs a reason. The proposer can cancel their own pending proposal. | T15 |
+| Undo | An administrator can undo with a reason. Everything moved returns; records created after the merge stay with the survivor. **No time limit** while `hospital_settings.merge_undo_days` is empty (the setting for the first 3–6 months); once set, older merges can't be undone. A later merge involving either patient must be undone first. | T15 |
+| Notifications and audit | Patients aren't notified. Every step (check, register, override, queue read, propose, approve, reject, cancel, undo) is audited, **without names or phone numbers in the audit log**. | T15 |
 
 ## 11. Documents
 
@@ -181,5 +213,6 @@ Name, mobile (E.164), category and consent are required; protected by CAPTCHA an
 | 24 Nov 2026 | Audit log is append-only; search text never stored | Engineering (audit) | Migrations 019, 020 |
 | 25 Nov 2026 | Doctor leave can be recorded while patients are booked; hospital cancellations always refund in full; desk refunds handled by billing | Owner | Migration 021 |
 | 25 Nov 2026 | Prescription corrections: issuer-only amendment, 72 h from first issue, patient notified on every amendment, withdrawal needs a second person (another doctor or admin), hidden from the patient while pending | Owner (approved proposal) | Migration 022 |
+| 25 Nov 2026 | Duplicate patients: match levels as above (shared mobile alone is not a match); merges approved by an administrator only; first-registered UHID survives, other becomes an alias; ID document type checked before approval (number never stored); date of birth required for online booking | Owner (approved proposal) | Migration 023 |
+| 25 Nov 2026 | Merge undo has **no time limit** for the initial stage (3–6 months); a limit can be set later with `merge_undo_days` | Owner | Migration 023 |
 | Pending | Nurses recording vitals | Hospital | HMS-021 |
-| Pending | Duplicate-patient match rules and merge approval | Hospital | HMS-018 |

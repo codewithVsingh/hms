@@ -3,9 +3,9 @@
 Running record for the audit and hardening work, so any session can resume without repeating work. Business rules live in [BUSINESS_RULES.md](BUSINESS_RULES.md); update it with every rule change. Issue details: [GAP_ANALYSIS.md](GAP_ANALYSIS.md). Branch: `feature/hms-audit-security-hardening` (draft PR #1; not merged).
 
 **Resume here:** next up is Phase 3, in this order:
-1. HMS-018 duplicate patient detection (needs match-rule decision; propose first)
-2. HMS-020 rate limiting
-3. HMS-024 Hindi completion
+1. HMS-020 rate limiting (edge/WAF or DB-backed limiter)
+2. HMS-024 Hindi completion (new screens from 021–023 are English-only apart from the register and timeline)
+3. HMS-021 nurse vitals (waiting for hospital decision)
 
 Start a local DB with `supabase/tests/local/run.sh` and add a T-test for each change.
 
@@ -33,6 +33,8 @@ Start a local DB with `supabase/tests/local/run.sh` and add a T-test for each ch
 | HMS-017 | P1 | `supabase/migrations/202611250022_prescription_corrections.sql`, `apps/portal/app/api/v3/[...action]/route.ts`, `apps/portal/features/live/prescription-corrections.tsx`, `extended.tsx`, `patient-history.tsx`, `lib/server/notifications.ts` | Issuer-only amendment within 72 h of first issue; versions kept; two-person withdrawal; paper recall list; content-free notifications; version history | T14, `tests/prescription-corrections.spec.ts` | Local + CI |
 | UI | P2 | `apps/portal/app/portal.css` | Checkbox labels in panels were squeezed to one letter per line (also on the original issue form) | Screenshot check | Local |
 | Docs | — | `docs/BUSINESS_RULES.md`, `.github/pull_request_template.md` | All business rules with enforcement and tests; decision log; PR checklist requires keeping it current | — | — |
+| HMS-018 | P1 | `supabase/migrations/202611250023_duplicate_patients.sql`, `supabase/tests/verify_duplicates.sql`, `apps/portal/app/api/v1/[...action]/route.ts`, `apps/portal/app/api/v3/[...action]/route.ts`, `apps/portal/features/live/duplicate-patients.tsx`, `workspace.tsx`, `booking.tsx`, `patient-history.tsx`, `extended.tsx`, `lib/extended-nav.ts` | Name+mobile+DOB matching (shared mobile alone not a match); registration check with recorded override; DOB required for online booking with silent flags; review queue; two-person merge with ID-type check; first UHID survives with alias; undo without time limit (setting); doctor banner | T15, `tests/duplicate-patients.spec.ts` | Local + CI |
+| UI | P2 | `apps/portal/features/live/prescription-corrections.tsx` | Hydration mismatch from the demo amendment window (time rendered on server); time-dependent text now renders after mount | Dev log clean | Local |
 | HMS-033 | P1 | `docs/BACKUP_AND_RECOVERY.md` | Procedure documented | — | Restore drill pending |
 | Docs | — | `docs/*.md` (this set) | Audit, gap analysis, security, threat model, roles, env, DB, tests, readiness | — | — |
 
@@ -40,7 +42,6 @@ Start a local DB with `supabase/tests/local/run.sh` and add a T-test for each ch
 
 | Issue | Priority | Plan | Dependency / manual configuration |
 |---|---|---|---|
-| HMS-018 | P1 | Duplicate candidates at registration; merge RPC with two-person review, audit; never automatic | Decision on match rules |
 | HMS-020 | P2 | Edge rate limits (hosting WAF) or a DB-backed limiter for lookup/quote/upload | Hosting choice |
 | HMS-021 | P2 | Optional nurse `vitals.write` | Hospital decision |
 | HMS-022 | P2 | Daily cash close report; discounts with approval | Finance process |

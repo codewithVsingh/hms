@@ -26,7 +26,7 @@ Key: **Done** = implemented end to end (UI → API → DB) · **Done (tested)** 
 |---|---|---|
 | Slot availability, schedules, slot length | Done (tested) | |
 | Doctor leave blocks slots | Done | |
-| Online booking with phone OTP | Done (tested) | |
+| Online booking with phone OTP and date of birth | Done (tested) | DOB required since migration 023 |
 | Temporary hold (10 min) and expiry | Done (tested) | |
 | Server fee, policy acknowledgement, idempotency | Done (tested) | |
 | Concurrent booking protection | Done (tested) | T10 |
@@ -53,7 +53,7 @@ Key: **Done** = implemented end to end (UI → API → DB) · **Done (tested)** 
 | Prescription amendment and withdrawal | Done (tested) | Issuer-only, 72 h window, two-person withdrawal, paper recall; T14 |
 | Paper prescription upload and verification | Config | Needs scanner |
 | Documents: upload, signed download | Config | Needs scanner |
-| Duplicate detection and merge | Missing | HMS-018 |
+| Duplicate detection and merge | Done (tested) | Registration check, online flags, review queue, two-person merge with ID check, UHID alias, undo; T15 |
 
 ## Finance
 
