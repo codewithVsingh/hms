@@ -4,8 +4,7 @@ Running record for the audit and hardening work, so any session can resume witho
 
 **Resume here:** next up is Phase 3, in this order:
 1. HMS-016 doctor-unavailability workflow
-2. HMS-019 audit patient search
-3. HMS-018 duplicate patient detection
+2. HMS-018 duplicate patient detection
 4. HMS-017 prescription amendments (needs a clinical decision on the workflow first)
 5. HMS-020 rate limiting
 

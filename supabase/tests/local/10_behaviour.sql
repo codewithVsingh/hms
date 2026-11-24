@@ -299,3 +299,32 @@ BEGIN
   PERFORM hms_test.expect_error('TRUNCATE hms.audit_logs', 'AUDIT_LOG_IMMUTABLE');
 END $$;
 \echo 'ok T11 random unambiguous booking references; audit log is append-only'
+
+-- ---------------------------------------------------------------- T12 staff patient search (migration 020)
+BEGIN;
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000003', 'aal2');
+SET LOCAL ROLE authenticated;
+DO $$
+DECLARE r jsonb;
+BEGIN
+  r := public.hms_staff_patients(hms_test.get('org')::uuid, hms_test.get('branch')::uuid, '+91 90000-00001');
+  PERFORM hms_test.ok(jsonb_array_length(r) = 1 AND r->0->>'name' = 'Patient Alpha', 'search by mobile number (any formatting): ' || r::text);
+  r := public.hms_staff_patients(hms_test.get('org')::uuid, hms_test.get('branch')::uuid, lower(hms_test.get('far_ref')));
+  PERFORM hms_test.ok(jsonb_array_length(r) = 1 AND r->0->>'name' = 'Patient Alpha', 'search by booking reference');
+  r := public.hms_staff_patients(hms_test.get('org')::uuid, hms_test.get('branch')::uuid, 'beta');
+  PERFORM hms_test.ok(jsonb_array_length(r) = 1 AND r->0->>'name' = 'Patient Beta', 'search by name');
+  r := public.hms_staff_patients(hms_test.get('org')::uuid, hms_test.get('branch')::uuid, '0000000000');
+  PERFORM hms_test.ok(jsonb_array_length(r) = 0, 'unknown number finds nothing');
+  PERFORM hms_test.expect_error(format('SELECT public.hms_staff_patients(%L,%L,%L)', hms_test.get('org'), hms_test.get('branch'), repeat('x', 101)), 'INVALID_REQUEST');
+END $$;
+COMMIT;
+BEGIN;
+SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000a', 'aal1');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.expect_error(format('SELECT public.hms_staff_patients(%L,%L,%L)', hms_test.get('org'), hms_test.get('branch'), 'Alpha'), 'FORBIDDEN');
+COMMIT;
+DO $$ BEGIN
+  PERFORM hms_test.ok((SELECT count(*) FROM hms.audit_logs WHERE action = 'patient.search' AND actor_user_id = 'a0000000-0000-4000-8000-000000000003') = 4, 'each search audited with the actor');
+  PERFORM hms_test.ok(NOT EXISTS (SELECT 1 FROM hms.audit_logs WHERE to_jsonb(audit_logs)::text ILIKE '%alpha%' OR to_jsonb(audit_logs)::text LIKE '%9000000001%'), 'search text is not stored in the audit log');
+END $$;
+\echo 'ok T12 staff search by phone, reference and name; patients cannot search; searches audited without search text'

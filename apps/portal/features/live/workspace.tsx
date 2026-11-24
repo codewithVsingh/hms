@@ -95,6 +95,7 @@ export function LiveWorkspace({
     [team, setTeam] = useState<Team[]>([]),
     [audit, setAudit] = useState<Audit[]>([]),
     [search, setSearch] = useState(''),
+    [query, setQuery] = useState(''),
     [selected, setSelected] = useState(''),
     [newName, setNewName] = useState(''),
     [newPhone, setNewPhone] = useState(''),
@@ -121,7 +122,7 @@ export function LiveWorkspace({
     if (canReadAppointments && ['dashboard', 'appointments', 'consultations', 'billing'].includes(current))
       tasks.push(api<Appointment[]>(`staff/appointments${allDays ? '' : `?date=${date}`}`).then(setRows));
     if (canReadPatients && ['patients', 'appointments'].includes(current))
-      tasks.push(api<Patient[]>(`staff/patients?q=${encodeURIComponent(search)}`).then(setPatients));
+      tasks.push(api<Patient[]>(`staff/patients?q=${encodeURIComponent(query)}`).then(setPatients));
     if (has('appointments.create') && current === 'appointments')
       tasks.push(api<Slot[]>(`staff/slots?date=${date}`).then(setSlots));
     if (current === 'staff') tasks.push(api<Team[]>('staff/team').then(setTeam));
@@ -138,7 +139,13 @@ export function LiveWorkspace({
     void load()
       .catch((e) => setError(message(e)))
       .finally(() => setLoading(false));
-  }, [current, date, allDays, search]);
+  }, [current, date, allDays, query]);
+  // Server patient search waits until typing pauses: one request (and one audit entry) per search,
+  // not per keystroke. The on-screen appointment filter still uses `search` instantly.
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
   async function run(task: () => Promise<void>, msg: string) {
     if (lock.current) return;
     lock.current = true;
@@ -545,7 +552,7 @@ export function LiveWorkspace({
               <>
                 <section className="surface live-panel stack">
                   <h2>Patient directory</h2>
-                  <Field label="Search by name or MRN">
+                  <Field label="Search by name, UHID, mobile or booking reference">
                     <input value={search} onChange={(e) => setSearch(e.target.value)} />
                   </Field>
                   {patients.length === 0 ? (

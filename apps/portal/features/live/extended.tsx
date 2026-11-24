@@ -1319,7 +1319,7 @@ function PatientEdit({ demo }: { demo: boolean }) {
         Check the MRN and identity before changing demographics. Contact verification and record merges are
         intentionally separate.
       </Notice>
-      <Field label="Search by patient name / MRN">
+      <Field label="Search by name, UHID, mobile or booking reference">
         <input value={q} onChange={(e) => setQ(e.target.value)} />
       </Field>
       <Button
