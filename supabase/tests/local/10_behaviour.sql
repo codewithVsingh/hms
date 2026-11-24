@@ -427,3 +427,174 @@ DO $$ BEGIN
   PERFORM hms_test.ok((SELECT status FROM hms.payments WHERE provider_payment_id = 'pay_TEST1') = 'refunded', 'online payment fully refunded after provider confirmation');
 END $$;
 \echo 'ok T13 doctor unavailable: leave recorded despite bookings, blocks new bookings, affected list, hospital cancel with full refund (online/desk/none), desk refund settlement'
+
+-- ---------------------------------------------------------------- T14 prescription corrections (migration 022)
+-- Fixture: a second doctor in the same branch (synthetic), an SMS opt-in for Patient Alpha, and a
+-- consultation for Alpha on a slot after the T13 leave (and before the slots T10 uses).
+INSERT INTO auth.users (id, email, email_confirmed_at) VALUES ('a0000000-0000-4000-8000-000000000004', 'doctor2@example.test', now());
+DO $$
+DECLARE m uuid; d uuid;
+BEGIN
+  INSERT INTO hms.profiles (user_id, display_name) VALUES ('a0000000-0000-4000-8000-000000000004', 'Dr Second Doctor');
+  INSERT INTO hms.memberships (organization_id, user_id) VALUES (hms_test.get('org')::uuid, 'a0000000-0000-4000-8000-000000000004') RETURNING id INTO m;
+  INSERT INTO hms.membership_branches VALUES (hms_test.get('org')::uuid, m, hms_test.get('branch')::uuid);
+  INSERT INTO hms.user_roles VALUES (hms_test.get('org')::uuid, m, hms_test.get('branch')::uuid, 'doctor');
+  INSERT INTO hms.doctors (organization_id, membership_id, department_id, public_slug, display_name, specialty, registration_number, fee_paise, published)
+    SELECT hms_test.get('org')::uuid, m, department_id, 'doctor-2', 'Dr Second Doctor', specialty, 'TEST-REG-2', 50000, false
+    FROM hms.doctors WHERE id = hms_test.get('doctor')::uuid RETURNING id INTO d;
+  INSERT INTO hms.doctor_branches (organization_id, doctor_id, branch_id) VALUES (hms_test.get('org')::uuid, d, hms_test.get('branch')::uuid);
+  INSERT INTO hms.notification_preferences (organization_id, patient_id, channel, enabled)
+    SELECT hms_test.get('org')::uuid, po.patient_id, 'sms', true FROM hms.patient_owners po WHERE po.user_id = 'a0000000-0000-4000-8000-00000000000a';
+END $$;
+SELECT hms_test.put('rx_slot', s.id::text) FROM hms.appointment_slots s
+  WHERE s.doctor_id = hms_test.get('doctor')::uuid AND s.starts_at > now() + interval '8 days 1 hour' AND s.starts_at < now() + interval '9 days'
+    AND NOT EXISTS (SELECT 1 FROM hms.appointments a WHERE a.slot_id = s.id) ORDER BY s.starts_at LIMIT 1;
+BEGIN;
+SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000a', 'aal1');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.put('rx_appt', public.hms_v4_book_self('test-hospital','MAIN', hms_test.get('rx_slot')::uuid, 'Patient Alpha', 'hospital', gen_random_uuid(), 'v1', true, 50000, 2)->>'id');
+COMMIT;
+BEGIN;
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000003', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT public.hms_change_status(hms_test.get('rx_appt')::uuid, 'checked_in');
+COMMIT;
+BEGIN;
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000002', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT public.hms_change_status(hms_test.get('rx_appt')::uuid, 'in_consultation');
+SELECT hms_test.put('rx1', public.hms_v3_issue_rx(hms_test.get('rx_appt')::uuid,
+  '[{"medicine":"Paracetamol 500 mg","dose":"1 tablet","frequency":"Twice daily","duration":"3 days","instructions":"After food"}]'::jsonb,
+  NULL, true, true)->>'id');
+COMMIT;
+BEGIN; -- reception hands over a printed copy of version 1
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000003', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT public.hms_v4_rx_handover(hms_test.get('rx1')::uuid, 'printed');
+-- Reception cannot amend.
+SELECT hms_test.expect_error(format('SELECT public.hms_v6_rx_amend(%L,%L::jsonb,NULL,%L,NULL,true)', hms_test.get('rx1'), '[{"medicine":"X","dose":"1","frequency":"1","duration":"1"}]', 'typo'), 'FORBIDDEN');
+COMMIT;
+BEGIN; -- another doctor cannot amend someone else's prescription
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000004', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.expect_error(format('SELECT public.hms_v6_rx_amend(%L,%L::jsonb,NULL,%L,NULL,true)', hms_test.get('rx1'), '[{"medicine":"X","dose":"1","frequency":"1","duration":"1"}]', 'typo'), 'FORBIDDEN');
+COMMIT;
+BEGIN;
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000002', 'aal2');
+SET LOCAL ROLE authenticated;
+DO $$
+DECLARE r jsonb; items constant text := '[{"medicine":"Paracetamol 500 mg","dose":"1 tablet","frequency":"Three times daily","duration":"3 days","instructions":"After food"}]';
+BEGIN
+  PERFORM hms_test.expect_error(format('SELECT public.hms_v6_rx_amend(%L,%L::jsonb,NULL,%L,NULL,true)', hms_test.get('rx1'), items, 'other'), 'INVALID_REQUEST');
+  PERFORM hms_test.expect_error(format('SELECT public.hms_v6_rx_amend(%L,%L::jsonb,NULL,%L,NULL,false)', hms_test.get('rx1'), items, 'dose_change'), 'INVALID_REQUEST');
+  r := public.hms_v6_rx_amend(hms_test.get('rx1')::uuid, items::jsonb, NULL, 'dose_change', 'Frequency corrected', true);
+  PERFORM hms_test.ok((r->>'version')::int = 2 AND (r->'replaces'->>'version')::int = 1 AND (r->>'paperCopyToRecall')::boolean AND (r->>'released')::boolean,
+    'amendment creates version 2, keeps portal release and flags the printed copy: ' || r::text);
+  PERFORM hms_test.put('rx2', r->>'id');
+  PERFORM hms_test.expect_error(format('SELECT public.hms_v6_rx_amend(%L,%L::jsonb,NULL,%L,NULL,true)', hms_test.get('rx1'), items, 'typo'), 'NOT_CURRENT_VERSION');
+END $$;
+COMMIT;
+DO $$ BEGIN
+  PERFORM hms_test.ok((SELECT status FROM hms.prescriptions WHERE id = hms_test.get('rx1')::uuid) = 'superseded', 'version 1 superseded, not deleted');
+  PERFORM hms_test.ok((SELECT count(*) FROM hms.prescription_items WHERE prescription_id = hms_test.get('rx1')::uuid) = 1, 'version 1 items preserved');
+  PERFORM hms_test.ok(EXISTS (SELECT 1 FROM hms.notification_jobs WHERE template_key = 'prescription_updated'), 'patient notified of the update');
+  PERFORM hms_test.expect_error(format('UPDATE hms.prescriptions SET status = %L WHERE id = %L', 'signed', hms_test.get('rx1')), 'duplicate key%');
+END $$;
+BEGIN; -- the patient sees only the current version, marked as an update
+SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000a', 'aal1');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.ok((SELECT jsonb_array_length(x) = 1 AND (x->0->>'version')::int = 2 AND (x->0->'replaces'->>'version')::int = 1 AND NOT (x->0 ? 'mine')
+  FROM (SELECT public.hms_v3_patient_records('test-hospital')->'prescriptions' x) z), 'patient sees only version 2');
+COMMIT;
+SELECT hms_test.put('alpha_mrn', p.mrn) FROM hms.patients p JOIN hms.patient_owners po ON po.patient_id = p.id WHERE po.user_id = 'a0000000-0000-4000-8000-00000000000a';
+BEGIN; -- reception recalls the printed version 1
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000003', 'aal2');
+SET LOCAL ROLE authenticated;
+DO $$
+DECLARE reg jsonb;
+BEGIN
+  reg := public.hms_v4_rx_register(hms_test.get('org')::uuid, hms_test.get('branch')::uuid, hms_test.get('alpha_mrn'));
+  PERFORM hms_test.ok(jsonb_array_length(reg->'recall') = 1 AND reg->'recall'->0->>'id' = hms_test.get('rx1'), 'register lists the printed version 1 for recall');
+  PERFORM hms_test.ok((reg->'prescriptions'->0->>'amended')::boolean, 'register marks the current version as amended');
+  PERFORM hms_test.ok(public.hms_v6_rx_recall_ack(hms_test.get('rx1')::uuid)->>'status' = 'recalled', 'recall recorded');
+  PERFORM hms_test.ok((public.hms_v6_rx_recall_ack(hms_test.get('rx1')::uuid)->>'repeat')::boolean, 'recall is idempotent');
+  PERFORM hms_test.ok(jsonb_array_length(public.hms_v4_rx_register(hms_test.get('org')::uuid, hms_test.get('branch')::uuid, hms_test.get('alpha_mrn'))->'recall') = 0, 'recall list cleared');
+END $$;
+COMMIT;
+-- Amendment window: pretend version 1 was issued 73 hours ago (window is 72 hours from FIRST issue).
+UPDATE hms.prescriptions SET signed_at = now() - interval '73 hours' WHERE id = hms_test.get('rx1')::uuid;
+BEGIN;
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000002', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.expect_error(format('SELECT public.hms_v6_rx_amend(%L,%L::jsonb,NULL,%L,NULL,true)', hms_test.get('rx2'), '[{"medicine":"X","dose":"1","frequency":"1","duration":"1"}]', 'typo'), 'AMEND_WINDOW_CLOSED');
+-- Withdrawal: no time limit; requested by the issuing doctor.
+SELECT hms_test.expect_error(format('SELECT public.hms_v6_rx_withdraw_request(%L,%L,NULL)', hms_test.get('rx2'), 'other'), 'INVALID_REQUEST');
+SELECT hms_test.put('wd1', public.hms_v6_rx_withdraw_request(hms_test.get('rx2')::uuid, 'wrong_patient', 'Issued to the wrong patient record')->>'withdrawalId');
+SELECT hms_test.expect_error(format('SELECT public.hms_v6_rx_withdraw_request(%L,%L,NULL)', hms_test.get('rx2'), 'duplicate'), 'WITHDRAWAL_PENDING');
+-- The requester cannot confirm their own withdrawal.
+SELECT hms_test.expect_error(format('SELECT public.hms_v6_rx_withdraw_decide(%L,true,NULL)', hms_test.get('wd1')), 'SECOND_PERSON_REQUIRED');
+COMMIT;
+BEGIN; -- hidden from the patient while pending
+SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000a', 'aal1');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.ok(jsonb_array_length(public.hms_v3_patient_records('test-hospital')->'prescriptions') = 0, 'pending withdrawal hides the prescription from the patient');
+COMMIT;
+BEGIN; -- reception cannot see or decide withdrawals
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000003', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.expect_error(format('SELECT public.hms_v6_rx_withdrawals(%L,%L)', hms_test.get('org'), hms_test.get('branch')), 'FORBIDDEN');
+SELECT hms_test.expect_error(format('SELECT public.hms_v6_rx_withdraw_decide(%L,true,NULL)', hms_test.get('wd1')), 'FORBIDDEN');
+SELECT hms_test.expect_error(format('SELECT public.hms_v4_rx_handover(%L,%L)', hms_test.get('rx2'), 'printed'), 'WITHDRAWAL_PENDING');
+COMMIT;
+BEGIN; -- admin sees the request without medicines, rejects with a reason
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000001', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.ok((SELECT jsonb_array_length(x) = 1 AND x->0->'items' = 'null'::jsonb AND x->0->>'reason' = 'wrong_patient'
+  FROM (SELECT public.hms_v6_rx_withdrawals(hms_test.get('org')::uuid, hms_test.get('branch')::uuid) x) z), 'admin sees request without clinical details');
+SELECT hms_test.expect_error(format('SELECT public.hms_v6_rx_withdraw_decide(%L,false,NULL)', hms_test.get('wd1')), 'INVALID_REQUEST');
+SELECT hms_test.ok(public.hms_v6_rx_withdraw_decide(hms_test.get('wd1')::uuid, false, 'Checked: correct patient')->>'status' = 'rejected', 'admin rejects');
+COMMIT;
+BEGIN;
+SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000a', 'aal1');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.ok(jsonb_array_length(public.hms_v3_patient_records('test-hospital')->'prescriptions') = 1, 'rejected withdrawal makes it visible again');
+COMMIT;
+BEGIN; -- request, cancel by requester, request again
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000002', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.ok(public.hms_v6_rx_withdraw_cancel((public.hms_v6_rx_withdraw_request(hms_test.get('rx2')::uuid, 'issued_in_error', NULL)->>'withdrawalId')::uuid)->>'status' = 'cancelled', 'requester can cancel a pending withdrawal');
+SELECT hms_test.put('wd3', public.hms_v6_rx_withdraw_request(hms_test.get('rx2')::uuid, 'wrong_patient', 'Wrong patient selected')->>'withdrawalId');
+COMMIT;
+BEGIN; -- another doctor sees medicines and confirms
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000004', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.ok((SELECT jsonb_array_length(x->0->'items') = 1 AND NOT (x->0->>'mine')::boolean
+  FROM (SELECT public.hms_v6_rx_withdrawals(hms_test.get('org')::uuid, hms_test.get('branch')::uuid) x) z), 'second doctor sees the medicines to judge the request');
+SELECT hms_test.expect_error(format('SELECT public.hms_v6_rx_withdraw_cancel(%L)', hms_test.get('wd3')), 'FORBIDDEN');
+SELECT hms_test.ok(public.hms_v6_rx_withdraw_decide(hms_test.get('wd3')::uuid, true, NULL)->>'status' = 'approved', 'second doctor approves');
+SELECT hms_test.expect_error(format('SELECT public.hms_v6_rx_withdraw_decide(%L,true,NULL)', hms_test.get('wd3')), 'INVALID_STATUS');
+COMMIT;
+BEGIN;
+SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000a', 'aal1');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.ok(jsonb_array_length(public.hms_v3_patient_records('test-hospital')->'prescriptions') = 0, 'withdrawn prescription hidden from patient');
+COMMIT;
+BEGIN; -- the issuing doctor sees the full history
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000002', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.ok((SELECT jsonb_array_length(h) = 2 AND h->0->>'status' = 'void' AND h->0->>'amendReason' = 'dose_change' AND h->0->>'amendNote' = 'Frequency corrected'
+    AND jsonb_array_length(h->0->'withdrawals') = 3 AND h->1->>'status' = 'superseded'
+  FROM (SELECT public.hms_v6_rx_history(hms_test.get('rx2')::uuid) h) z), 'history shows both versions, reasons and all withdrawal decisions');
+COMMIT;
+BEGIN; -- patients cannot read prescription history
+SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000a', 'aal1');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.expect_error(format('SELECT public.hms_v6_rx_history(%L)', hms_test.get('rx2')), 'FORBIDDEN');
+COMMIT;
+DO $$ BEGIN
+  PERFORM hms_test.ok(EXISTS (SELECT 1 FROM hms.notification_jobs WHERE template_key = 'prescription_withdrawn'), 'patient notified of withdrawal');
+  PERFORM hms_test.ok((SELECT count(*) FROM hms.prescriptions WHERE encounter_id = (SELECT encounter_id FROM hms.prescriptions WHERE id = hms_test.get('rx2')::uuid)) = 2, 'nothing deleted');
+  PERFORM hms_test.ok((SELECT count(DISTINCT action) FROM hms.audit_logs WHERE action IN ('prescription.amended', 'prescription.withdraw.requested', 'prescription.withdraw.cancelled',
+    'prescription.withdraw.rejected', 'prescription.withdraw.approved', 'prescription.paper.recalled', 'prescription.history.read')) = 7, 'every correction step audited');
+END $$;
+\echo 'ok T14 prescription corrections: issuer-only amend in 72h window, versions kept, patient sees current only, paper recall, two-person withdrawal, history, notifications, audit'
