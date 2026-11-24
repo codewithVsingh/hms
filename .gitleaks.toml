@@ -1,0 +1,10 @@
+# Gitleaks configuration: default rules plus allowlists for synthetic test fixtures.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Synthetic test data and documentation placeholders"
+paths = [
+  '''supabase/tests/local/.*''',
+  '''pnpm-lock\.yaml''',
+]

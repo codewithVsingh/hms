@@ -1,12 +1,14 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
-import { Brand, Button, Field, Notice, Badge, Icon, L } from '@hms/ui';
+import { Brand, Button, Field, Notice, Badge, Icon, L, T, When, useT } from '@hms/ui';
 import { api, localDay, when, rupees, human, message } from './client';
 import { PatientTimeline, PrescriptionRegister, CancellationPolicySettings } from './patient-history';
 import { v2 } from './v2-client';
 import type { StaffContext } from '../../lib/server/supabase';
 import type { Role } from '@hms/types';
 import { extendedNav } from '../../lib/extended-nav';
+import { RxCorrections, RxStatusBadges, RxWithdrawals } from './prescription-corrections';
+import { DuplicatePatients } from './duplicate-patients';
 type Item = { medicine: string; dose: string; frequency: string; duration: string; instructions: string };
 type Rx = {
   id: string;
@@ -20,6 +22,10 @@ type Rx = {
   followUp: string | null;
   released: boolean;
   items: Item[];
+  replaces?: { version: number; issuedAt: string } | null;
+  amendUntil?: string | null;
+  mine?: boolean;
+  withdrawalPending?: boolean;
 };
 type Visit = {
   reference: string;
@@ -84,6 +90,9 @@ const sampleRx: Rx = {
       instructions: 'Fictional record for design review',
     },
   ],
+  // Demo: issued by the demo doctor, amendment window open for two more days.
+  mine: true,
+  amendUntil: new Date(Date.now() + 2 * 86400000).toISOString(),
 };
 const sampleCare: Care = {
   patient: 'Sample Patient B',
@@ -125,10 +134,11 @@ const sampleApts: Apt[] = [
 ];
 function useAction() {
   const [busy, setBusy] = useState(false),
-    [msg, setMsg] = useState(''),
+    [msg, setMsg] = useState<React.ReactNode>(''),
     [error, setError] = useState('');
   const lock = useRef(false);
-  const run = async (task: () => Promise<void>, success = '') => {
+  // `success` may be a function so the message can use values produced by the task.
+  const run = async (task: () => Promise<void>, success: React.ReactNode | (() => React.ReactNode) = '') => {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
@@ -136,7 +146,7 @@ function useAction() {
     setMsg('');
     try {
       await task();
-      setMsg(success);
+      setMsg(typeof success === 'function' ? success() : success);
     } catch (e) {
       setError(message(e));
     } finally {
@@ -151,7 +161,7 @@ function useAction() {
       <>
         {error && (
           <div className="form-error" role="alert">
-            {error}
+            <L en={error} />
           </div>
         )}
         {msg && <Notice tone="success">{msg}</Notice>}
@@ -162,7 +172,9 @@ function useAction() {
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="surface ops-panel stack">
-      <h2>{title}</h2>
+      <h2>
+        <L en={title} />
+      </h2>
       {children}
     </section>
   );
@@ -171,24 +183,54 @@ function PrintPrescription({ rx, demo = false }: { rx: Rx; demo?: boolean }) {
   return (
     <div className="ops-print">
       <span className="eyebrow">
-        {demo ? 'Fictional sample · not for medical use' : 'Clinical record · clinician attestation'}
+        <L en={demo ? 'Fictional sample · not for medical use' : 'Clinical record · clinician attestation'} />
       </span>
-      <h2>{process.env.NEXT_PUBLIC_HOSPITAL_NAME || 'Aarogya Care'}</h2>
+      <h2>{process.env.NEXT_PUBLIC_HOSPITAL_NAME || <L en={'Aarogya Care'} />}</h2>
       <p>
-        Prescription · version {rx.version} · {rx.id}
+        <T en={'Prescription · version {0} · {1}'} values={[rx.version, rx.id]} />
       </p>
+      {rx.replaces && (
+        <p>
+          <strong>
+            <T
+              en={'Replaces version {0} issued on {1}. Earlier copies are no longer valid.'}
+              values={[rx.replaces.version, <When key="v1" iso={rx.replaces.issuedAt} />]}
+            />
+          </strong>
+        </p>
+      )}
+      {rx.status !== 'signed' && rx.issuedAt && (
+        <p>
+          <strong>
+            <T
+              en={'{0}: this version is not valid. Do not dispense from it.'}
+              values={[<L key="v0" en={rx.status === 'void' ? 'WITHDRAWN' : 'SUPERSEDED'} />]}
+            />
+          </strong>
+        </p>
+      )}
       <h3>{rx.doctor}</h3>
-      <p>Medical registration: {rx.registration}</p>
       <p>
-        {rx.patient} · {rx.mrn} · {rx.issuedAt ? when(rx.issuedAt) : 'Draft'}
+        <T en={'Medical registration: {0}'} values={[rx.registration]} />
+      </p>
+      <p>
+        {rx.patient} · {rx.mrn} · {rx.issuedAt ? <When iso={rx.issuedAt} /> : <L en={'Draft'} />}
       </p>
       <table>
         <thead>
           <tr>
-            <th>Medicine</th>
-            <th>Dose</th>
-            <th>Frequency</th>
-            <th>Duration</th>
+            <th>
+              <L en={'Medicine'} />
+            </th>
+            <th>
+              <L en={'Dose'} />
+            </th>
+            <th>
+              <L en={'Frequency'} />
+            </th>
+            <th>
+              <L en={'Duration'} />
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -205,10 +247,15 @@ function PrintPrescription({ rx, demo = false }: { rx: Rx; demo?: boolean }) {
           ))}
         </tbody>
       </table>
-      <p>Follow-up: {rx.followUp || 'Not scheduled'}</p>
+      <p>
+        <T en={'Follow-up: {0}'} values={[rx.followUp || <L en={'Not scheduled'} />]} />
+      </p>
       <p className="ops-muted">
-        Authenticated clinician attestation; not a certified digital signature. Follow the hospital's approved
-        signing and issuance procedure.
+        <L
+          en={
+            "Authenticated clinician attestation; not a certified digital signature. Follow the hospital's approved signing and issuance procedure."
+          }
+        />
       </p>
       <Button variant="secondary" onClick={() => window.print()}>
         Print / save as PDF
@@ -250,19 +297,25 @@ export function InvoiceButton({ id, demo = false }: { id: string; demo?: boolean
       {a.feedback}
       {invoice && (
         <div className="ops-print">
-          <h2>{process.env.NEXT_PUBLIC_HOSPITAL_NAME || 'Aarogya Care'}</h2>
+          <h2>{process.env.NEXT_PUBLIC_HOSPITAL_NAME || <L en={'Aarogya Care'} />}</h2>
           <p>
-            {demo ? 'Sample invoice' : 'Invoice'} · {invoice.number}
+            <L en={demo ? 'Sample invoice' : 'Invoice'} /> · {invoice.number}
           </p>
           <p>
-            {invoice.reference} · {human(invoice.status)} · {when(invoice.issuedAt)}
+            {invoice.reference} · <L en={human(invoice.status)} /> · <When iso={invoice.issuedAt} />
           </p>
           <table>
             <thead>
               <tr>
-                <th>Item</th>
-                <th>Qty</th>
-                <th>Amount</th>
+                <th>
+                  <L en={'Item'} />
+                </th>
+                <th>
+                  <L en={'Qty'} />
+                </th>
+                <th>
+                  <L en={'Amount'} />
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -275,7 +328,9 @@ export function InvoiceButton({ id, demo = false }: { id: string; demo?: boolean
               ))}
             </tbody>
           </table>
-          <h3>Total: {rupees(invoice.totalPaise)}</h3>
+          <h3>
+            <T en={'Total: {0}'} values={[rupees(invoice.totalPaise)]} />
+          </h3>
           <Button variant="secondary" onClick={() => window.print()}>
             Print / save as PDF
           </Button>
@@ -293,6 +348,7 @@ export function MoveAppointment({
   onDone: () => Promise<void>;
   demo?: boolean;
 }) {
+  const tx = useT();
   const [open, setOpen] = useState(false),
     [date, setDate] = useState(localDay),
     [slots, setSlots] = useState<{ id: string; startsAt: string }[]>([]),
@@ -335,7 +391,7 @@ export function MoveAppointment({
           </Button>
           <Field label="Same doctor, new time">
             <select value={slot} onChange={(e) => setSlot(e.target.value)}>
-              <option value="">Select time</option>
+              <option value="">{tx('Select time')}</option>
               {slots.map((s) => (
                 <option key={s.id} value={s.id}>
                   {when(s.startsAt)}
@@ -378,6 +434,7 @@ function Documents({
   demo?: boolean;
   patient?: boolean;
 }) {
+  const tx = useT();
   const [docs, setDocs] = useState<Doc[]>([]),
     [file, setFile] = useState<File | null>(null),
     [type, setType] = useState('report'),
@@ -407,14 +464,21 @@ function Documents({
   return (
     <Panel title="Medical documents">
       <p>
-        Private, access-controlled patient documents. PDF, PNG or JPG, up to 4 MB; malware screening required.
+        <L
+          en={
+            'Private, access-controlled patient documents. PDF, PNG or JPG, up to 4 MB; malware screening required.'
+          }
+        />
       </p>
       {err && <Notice tone="warning">{err}</Notice>}
       {docs.map((d) => (
         <div className="ops-item" key={d.id}>
           <strong>{d.original_name}</strong>
           <p>
-            {human(d.document_type)} · {Math.ceil(d.byte_size / 1024)} KB
+            <T
+              en={'{0} · {1} KB'}
+              values={[<L key="v0" en={human(d.document_type)} />, Math.ceil(d.byte_size / 1024)]}
+            />
           </p>
           <Button
             variant="secondary"
@@ -456,7 +520,9 @@ function Documents({
           <Field label="Document category">
             <select value={type} onChange={(e) => setType(e.target.value)}>
               {['report', 'image', 'referral', 'other'].map((t) => (
-                <option key={t}>{t}</option>
+                <option key={t} value={t}>
+                  {tx(String(t))}
+                </option>
               ))}
             </select>
           </Field>
@@ -468,8 +534,17 @@ function Documents({
             />
           </Field>
           <label className="check-field">
-            <input type="checkbox" checked={release} onChange={(e) => setRelease(e.target.checked)} /> Release
-            document to patient
+            <T
+              en={'{0} Release document to patient'}
+              values={[
+                <input
+                  key="v0"
+                  type="checkbox"
+                  checked={release}
+                  onChange={(e) => setRelease(e.target.checked)}
+                />,
+              ]}
+            />
           </label>
           <Button type="submit" disabled={!file || a.busy}>
             Scan and upload
@@ -481,6 +556,7 @@ function Documents({
   );
 }
 function CarePanel({ demo }: { demo: boolean }) {
+  const tx = useT();
   const [apts, setApts] = useState<Apt[]>(demo ? sampleApts : []),
     [id, setId] = useState(demo ? 'demo-1' : ''),
     [care, setCare] = useState<Care | null>(demo ? sampleCare : null),
@@ -517,15 +593,18 @@ function CarePanel({ demo }: { demo: boolean }) {
     <>
       <Panel title="Patient care workspace">
         <p>
-          Open an assigned active or completed consultation. Only the treating clinician can issue
-          prescriptions.
+          <L
+            en={
+              'Open an assigned active or completed consultation. Only the treating clinician can issue prescriptions.'
+            }
+          />
         </p>
         <Field label="Consultation">
           <select value={id} onChange={(e) => setId(e.target.value)}>
-            <option value="">Choose visit</option>
+            <option value="">{tx('Choose visit')}</option>
             {apts.map((x) => (
               <option key={x.id} value={x.id}>
-                {x.patient} · {x.reference}
+                {tx(String(x.patient))} · {tx(String(x.reference))}
               </option>
             ))}
           </select>
@@ -535,7 +614,7 @@ function CarePanel({ demo }: { demo: boolean }) {
           <div className="ops-item">
             <h3>{care.patient}</h3>
             <p>
-              {care.mrn} · {human(care.status)}
+              {care.mrn} · <L en={human(care.status)} />
             </p>
           </div>
         )}
@@ -575,7 +654,7 @@ function CarePanel({ demo }: { demo: boolean }) {
                     <select value={kind} onChange={(e) => setKind(e.target.value)}>
                       {['diagnosis', 'allergy', 'condition', 'history'].map((k) => (
                         <option key={k} value={k}>
-                          {human(k)}
+                          {tx(human(k))}
                         </option>
                       ))}
                     </select>
@@ -654,10 +733,12 @@ function CarePanel({ demo }: { demo: boolean }) {
             {care.visits.map((v, i) => (
               <div className="ops-item" key={i}>
                 <strong>
-                  {v.reference} · {human(v.status)}
+                  {v.reference} · <L en={human(v.status)} />
                 </strong>
-                <p>{when(v.created_at)}</p>
-                <p>{v.note || 'No note'}</p>
+                <p>
+                  <When iso={v.created_at} />
+                </p>
+                <p>{v.note || <L en={'No note'} />}</p>
                 {v.diagnoses.map((d, j) => (
                   <Badge key={j}>{d}</Badge>
                 ))}
@@ -718,12 +799,30 @@ function CarePanel({ demo }: { demo: boolean }) {
                   />
                 </Field>
                 <label className="check-field">
-                  <input type="checkbox" checked={release} onChange={(e) => setRelease(e.target.checked)} />{' '}
-                  Release to verified patient portal
+                  <T
+                    en={'{0} Release to verified patient portal'}
+                    values={[
+                      <input
+                        key="v0"
+                        type="checkbox"
+                        checked={release}
+                        onChange={(e) => setRelease(e.target.checked)}
+                      />,
+                    ]}
+                  />
                 </label>
                 <label className="check-field">
-                  <input type="checkbox" checked={attest} onChange={(e) => setAttest(e.target.checked)} /> I
-                  have reviewed the complete prescription and authorize issuance.
+                  <T
+                    en={'{0} I have reviewed the complete prescription and authorize issuance.'}
+                    values={[
+                      <input
+                        key="v0"
+                        type="checkbox"
+                        checked={attest}
+                        onChange={(e) => setAttest(e.target.checked)}
+                      />,
+                    ]}
+                  />
                 </label>
                 <Button
                   disabled={
@@ -736,7 +835,7 @@ function CarePanel({ demo }: { demo: boolean }) {
                   }
                   onClick={() =>
                     void a.run(async () => {
-                      if (!confirm('Issue this prescription? It cannot be overwritten.')) return;
+                      if (!confirm(tx('Issue this prescription? It cannot be overwritten.'))) return;
                       const rx = demo
                         ? {
                             ...sampleRx,
@@ -765,13 +864,23 @@ function CarePanel({ demo }: { demo: boolean }) {
               </>
             )}
             {care.prescriptions.map((rx) => (
-              <div className="ops-item live-card-head" key={rx.id}>
-                <span>
-                  Version {rx.version} · {human(rx.status)}
-                </span>
-                <Button variant="secondary" onClick={() => setPrinted(rx)}>
-                  View printable copy
-                </Button>
+              <div className="ops-item stack" key={rx.id}>
+                <div className="live-card-head">
+                  <span>
+                    <T
+                      en={'Version {0} · {1} {2}'}
+                      values={[
+                        rx.version,
+                        <L key="v1" en={human(rx.status === 'void' ? 'withdrawn' : rx.status)} />,
+                        <RxStatusBadges key="v2" rx={rx} />,
+                      ]}
+                    />
+                  </span>
+                  <Button variant="secondary" onClick={() => setPrinted(rx)}>
+                    View printable copy
+                  </Button>
+                </div>
+                <RxCorrections rx={rx} demo={demo} onChanged={async () => (demo ? undefined : load())} />
               </div>
             ))}
             {printed && <PrintPrescription rx={printed} demo={demo} />}
@@ -801,8 +910,11 @@ function QueuePanel({ demo }: { demo: boolean }) {
   return (
     <Panel title="OPD queue">
       <p>
-        Tokens are allocated automatically at check-in. Use the appointment screen for clinical status
-        transitions.
+        <L
+          en={
+            'Tokens are allocated automatically at check-in. Use the appointment screen for clinical status transitions.'
+          }
+        />
       </p>
       <Field label="Queue date">
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -813,7 +925,9 @@ function QueuePanel({ demo }: { demo: boolean }) {
       <div className="ops-grid">
         {rows.map((r) => (
           <div key={r.id} className="ops-item">
-            <span className="eyebrow">Token {String(r.token).padStart(3, '0')}</span>
+            <span className="eyebrow">
+              <T en={'Token {0}'} values={[String(r.token).padStart(3, '0')]} />
+            </span>
             <h3>{r.patient}</h3>
             <p>{r.doctor}</p>
             <Badge tone="teal">{human(r.status)}</Badge>
@@ -826,13 +940,15 @@ function QueuePanel({ demo }: { demo: boolean }) {
   );
 }
 function Leaves({ demo }: { demo: boolean }) {
+  const tx = useT();
   const [data, setData] = useState<{
       doctors: { id: string; name: string }[];
       leaves: { id: string; doctor: string; starts_at: string; ends_at: string }[];
     }>({ doctors: [], leaves: [] }),
     [doctor, setDoctor] = useState(''),
     [start, setStart] = useState(''),
-    [end, setEnd] = useState('');
+    [end, setEnd] = useState(''),
+    [reason, setReason] = useState<LeaveReason>('leave');
   const a = useAction();
   const load = async () =>
     setData(
@@ -857,42 +973,64 @@ function Leaves({ demo }: { demo: boolean }) {
   return (
     <Panel title="Doctor leave calendar">
       <Notice>
-        Times are in IST. Existing confirmed or held appointments must be moved or cancelled before leave is
-        added.
+        Times are in IST. Saving blocks new bookings in this period straight away. Patients already booked
+        appear under Affected bookings, where reception can move them or cancel with a full refund.
       </Notice>
       <form
         className="stack"
         onSubmit={(e) => {
           e.preventDefault();
-          void a.run(async () => {
-            if (demo)
-              setData((d) => ({
-                ...d,
-                leaves: [
-                  ...d.leaves,
-                  {
-                    id: String(Date.now()),
-                    doctor: d.doctors.find((x) => x.id === doctor)?.name || 'Doctor',
-                    starts_at: asIST(start),
-                    ends_at: asIST(end),
-                  },
-                ],
-              }));
-            else {
-              await v2('leaves', { doctorId: doctor, start: asIST(start), end: asIST(end) });
-              await load();
-            }
-            setStart('');
-            setEnd('');
-          }, 'Leave saved.');
+          let affected = 0;
+          void a.run(
+            async () => {
+              if (demo)
+                setData((d) => ({
+                  ...d,
+                  leaves: [
+                    ...d.leaves,
+                    {
+                      id: String(Date.now()),
+                      doctor: d.doctors.find((x) => x.id === doctor)?.name || 'Doctor',
+                      starts_at: asIST(start),
+                      ends_at: asIST(end),
+                    },
+                  ],
+                }));
+              else {
+                const r = await v2<{ affected: number }>('leaves', {
+                  doctorId: doctor,
+                  start: asIST(start),
+                  end: asIST(end),
+                  reason,
+                });
+                affected = r.affected;
+                await load();
+              }
+              setStart('');
+              setEnd('');
+            },
+            () =>
+              affected > 0 ? (
+                <T
+                  en={
+                    affected === 1
+                      ? 'Leave saved. 1 booked patient needs action under Affected bookings.'
+                      : 'Leave saved. {0} booked patients need action under Affected bookings.'
+                  }
+                  values={[affected]}
+                />
+              ) : (
+                'Leave saved. No existing bookings are affected.'
+              ),
+          );
         }}
       >
         <Field label="Doctor">
           <select required value={doctor} onChange={(e) => setDoctor(e.target.value)}>
-            <option value="">Choose doctor</option>
+            <option value="">{tx('Choose doctor')}</option>
             {data.doctors.map((d) => (
               <option key={d.id} value={d.id}>
-                {d.name}
+                {tx(String(d.name))}
               </option>
             ))}
           </select>
@@ -905,6 +1043,15 @@ function Leaves({ demo }: { demo: boolean }) {
             <input type="datetime-local" required value={end} onChange={(e) => setEnd(e.target.value)} />
           </Field>
         </div>
+        <Field label="Reason (internal)">
+          <select value={reason} onChange={(e) => setReason(e.target.value as LeaveReason)}>
+            {leaveReasons.map(([k, label]) => (
+              <option key={k} value={k}>
+                {tx(String(label))}
+              </option>
+            ))}
+          </select>
+        </Field>
         <Button type="submit" disabled={a.busy || !doctor || !start || !end || start >= end}>
           Block availability
         </Button>
@@ -913,10 +1060,327 @@ function Leaves({ demo }: { demo: boolean }) {
         <div className="ops-item" key={l.id}>
           <strong>{l.doctor}</strong>
           <p>
-            {when(l.starts_at)} – {when(l.ends_at)}
+            <When iso={l.starts_at} /> – <When iso={l.ends_at} />
           </p>
         </div>
       ))}
+      {a.feedback}
+    </Panel>
+  );
+}
+type LeaveReason = 'leave' | 'unwell' | 'emergency' | 'training' | 'holiday' | 'other';
+const leaveReasons: [LeaveReason, string][] = [
+  ['leave', 'Planned leave'],
+  ['unwell', 'Unwell'],
+  ['emergency', 'Emergency'],
+  ['training', 'Training / conference'],
+  ['holiday', 'Hospital holiday'],
+  ['other', 'Other'],
+];
+const methodLabel: Record<string, string> = {
+  razorpay: 'online',
+  cash: 'cash',
+  upi_offline: 'UPI at desk',
+  card_offline: 'card at desk',
+  bank_transfer: 'bank transfer',
+};
+type Affected = {
+  id: string;
+  reference: string;
+  status: string;
+  startsAt: string;
+  doctor: string;
+  patient: string;
+  mrn: string;
+  phone: string | null;
+  leaveReason: LeaveReason;
+  leaveEndsAt: string;
+  paidPaise: number;
+  paymentMethod: string | null;
+};
+const demoAffected: Affected[] = [
+  {
+    id: 'demo-a1',
+    reference: 'BK-7K2M9QX',
+    status: 'confirmed',
+    startsAt: now,
+    doctor: 'Dr. Ananya Sharma',
+    patient: 'Sample Patient D',
+    mrn: 'PT-000104',
+    phone: '+910000000000',
+    leaveReason: 'unwell',
+    leaveEndsAt: now,
+    paidPaise: 50000,
+    paymentMethod: 'razorpay',
+  },
+  {
+    id: 'demo-a2',
+    reference: 'BK-H4TN8PW',
+    status: 'confirmed',
+    startsAt: now,
+    doctor: 'Dr. Ananya Sharma',
+    patient: 'Sample Patient E',
+    mrn: 'PT-000105',
+    phone: '+910000000000',
+    leaveReason: 'unwell',
+    leaveEndsAt: now,
+    paidPaise: 0,
+    paymentMethod: null,
+  },
+];
+function refundLine(r: Affected): React.ReactNode {
+  if (r.paidPaise <= 0) return <L en="Not paid yet: nothing to refund." />;
+  return r.paymentMethod === 'razorpay' ? (
+    <T
+      en="Full refund of {0} to the original online payment after administrator approval (usually 5–7 working days once sent)."
+      values={[rupees(r.paidPaise)]}
+    />
+  ) : (
+    <T
+      en="Full refund of {0} due at the desk (paid by {1}). Billing records it under Desk refunds."
+      values={[rupees(r.paidPaise), <L key="m" en={methodLabel[r.paymentMethod || ''] || 'desk payment'} />]}
+    />
+  );
+}
+function AffectedRow({ row, demo, onDone }: { row: Affected; demo: boolean; onDone: () => Promise<void> }) {
+  const tx = useT();
+  const [confirming, setConfirming] = useState(false),
+    [reason, setReason] = useState<'doctor_unavailable' | 'hospital_closure' | 'other'>('doctor_unavailable');
+  const a = useAction();
+  return (
+    <div className="ops-item stack">
+      <div>
+        <strong className="break-ref">{row.reference}</strong> · {row.patient} ({row.mrn})
+        <p>
+          <T
+            en={'{0} with {1} · {2}'}
+            values={[
+              <When key="v0" iso={row.startsAt} />,
+              row.doctor,
+              <Badge key="v2" tone={row.paidPaise > 0 ? 'green' : 'amber'}>
+                {row.paidPaise > 0 ? (
+                  <T
+                    en="Paid {0} {1}"
+                    values={[
+                      rupees(row.paidPaise),
+                      <L key="m" en={methodLabel[row.paymentMethod || ''] || ''} />,
+                    ]}
+                  />
+                ) : row.status === 'held' ? (
+                  'Payment pending'
+                ) : (
+                  'Pay at hospital'
+                )}
+              </Badge>,
+            ]}
+          />
+        </p>
+        {row.phone && (
+          <p>
+            <T
+              en={'Call patient: {0}'}
+              values={[
+                <a key="v0" href={`tel:${row.phone}`}>
+                  {row.phone}
+                </a>,
+              ]}
+            />
+          </p>
+        )}
+      </div>
+      {row.status === 'confirmed' && <MoveAppointment id={row.id} demo={demo} onDone={onDone} />}
+      {!confirming ? (
+        <Button variant="danger" onClick={() => setConfirming(true)}>
+          Cancel with full refund
+        </Button>
+      ) : (
+        <div className="ops-item stack" role="group" aria-label={`Confirm cancellation of ${row.reference}`}>
+          <strong>
+            <T en={'Cancel {0}?'} values={[row.reference]} />
+          </strong>
+          <p>
+            {row.patient} · <When iso={row.startsAt} /> · {row.doctor}
+          </p>
+          <p>{refundLine(row)}</p>
+          <p className="ops-muted">
+            <L
+              en={
+                'No cancellation fee applies to hospital-initiated cancellations. The patient is notified on their opted-in channels.'
+              }
+            />
+          </p>
+          <Field label="Reason">
+            <select value={reason} onChange={(e) => setReason(e.target.value as typeof reason)}>
+              <option value="doctor_unavailable">{tx('Doctor unavailable')}</option>
+              <option value="hospital_closure">{tx('Hospital closure')}</option>
+              <option value="other">{tx('Other')}</option>
+            </select>
+          </Field>
+          <div className="form-grid">
+            <Button variant="secondary" disabled={a.busy} onClick={() => setConfirming(false)}>
+              Back
+            </Button>
+            <Button
+              variant="danger"
+              disabled={a.busy}
+              onClick={() =>
+                void a.run(
+                  async () => {
+                    if (!demo) await v2('appointments/hospital-cancel', { id: row.id, reason });
+                    await onDone();
+                  },
+                  demo ? 'Demo only: no booking was cancelled.' : 'Booking cancelled.',
+                )
+              }
+            >
+              Confirm cancellation
+            </Button>
+          </div>
+        </div>
+      )}
+      {a.feedback}
+    </div>
+  );
+}
+function AffectedBookings({ demo }: { demo: boolean }) {
+  const [rows, setRows] = useState<Affected[] | null>(null);
+  const a = useAction();
+  const load = async () => setRows(demo ? demoAffected : await v2<Affected[]>('leaves/affected'));
+  useEffect(() => {
+    void a.run(load);
+    // Reload only when switching demo/live; `load` and `a` are recreated every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demo]);
+  return (
+    <Panel title="Bookings affected by doctor unavailability">
+      <Notice>
+        These patients are booked while their doctor is unavailable. Call them, then move the visit to another
+        time with the same doctor, or cancel with a full refund.
+      </Notice>
+      {rows === null ? (
+        <p aria-busy="true">
+          <L en={'Loading…'} />
+        </p>
+      ) : rows.length === 0 ? (
+        <Notice tone="success">No bookings need action.</Notice>
+      ) : (
+        rows.map((r) => (
+          <AffectedRow
+            key={r.id}
+            row={r}
+            demo={demo}
+            onDone={async () => (demo ? setRows((x) => (x || []).filter((y) => y.id !== r.id)) : load())}
+          />
+        ))
+      )}
+      {a.feedback}
+    </Panel>
+  );
+}
+type DeskRefund = {
+  id: string;
+  amountPaise: number;
+  paidBy: string;
+  reference: string;
+  patient: string;
+  mrn: string;
+  reason: string;
+  requestedAt: string;
+};
+function DeskRefunds({ demo }: { demo: boolean }) {
+  const tx = useT();
+  const [rows, setRows] = useState<DeskRefund[] | null>(null),
+    [method, setMethod] = useState<Record<string, string>>({});
+  const a = useAction();
+  const load = async () =>
+    setRows(
+      demo
+        ? [
+            {
+              id: 'demo-r1',
+              amountPaise: 50000,
+              paidBy: 'cash',
+              reference: 'BK-H4TN8PW',
+              patient: 'Sample Patient E',
+              mrn: 'PT-000105',
+              reason: 'doctor_unavailable',
+              requestedAt: now,
+            },
+          ]
+        : await v2<DeskRefund[]>('refunds/desk'),
+    );
+  useEffect(() => {
+    void a.run(load);
+    // Reload only when switching demo/live; `load` and `a` are recreated every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demo]);
+  return (
+    <Panel title="Refunds due at the desk">
+      <Notice>
+        Hand the full amount back to the patient, then record how it was returned. Online payments are
+        refunded through Razorpay and do not appear here.
+      </Notice>
+      {rows === null ? (
+        <p aria-busy="true">
+          <L en={'Loading…'} />
+        </p>
+      ) : rows.length === 0 ? (
+        <Notice tone="success">No desk refunds pending.</Notice>
+      ) : (
+        rows.map((r) => (
+          <div className="ops-item stack" key={r.id}>
+            <div>
+              <T
+                en={'{0} to {1} ({2}) · {3}{4}'}
+                values={[
+                  <strong key="v0">{rupees(r.amountPaise)}</strong>,
+                  r.patient,
+                  r.mrn,
+                  r.reference,
+                  <p key="paid">
+                    <T
+                      en="Paid by {0} · cancelled {1} ({2})"
+                      values={[
+                        <L key="m" en={methodLabel[r.paidBy] || r.paidBy} />,
+                        <When key="w" iso={r.requestedAt} />,
+                        <L key="r" en={human(r.reason)} />,
+                      ]}
+                    />
+                  </p>,
+                ]}
+              />
+            </div>
+            <Field label="Returned by">
+              <select
+                value={method[r.id] || r.paidBy}
+                onChange={(e) => setMethod((m) => ({ ...m, [r.id]: e.target.value }))}
+              >
+                <option value="cash">{tx('Cash')}</option>
+                <option value="upi_offline">{tx('UPI')}</option>
+                <option value="card_offline">{tx('Card reversal')}</option>
+                <option value="bank_transfer">{tx('Bank transfer')}</option>
+              </select>
+            </Field>
+            <Button
+              disabled={a.busy}
+              onClick={() =>
+                void a.run(
+                  async () => {
+                    if (demo) setRows((x) => (x || []).filter((y) => y.id !== r.id));
+                    else {
+                      await v2('refunds/desk', { id: r.id, method: method[r.id] || r.paidBy });
+                      await load();
+                    }
+                  },
+                  demo ? 'Demo only: nothing recorded.' : 'Refund recorded.',
+                )
+              }
+            >
+              Record refund given
+            </Button>
+          </div>
+        ))
+      )}
       {a.feedback}
     </Panel>
   );
@@ -996,7 +1460,9 @@ function Reports({ demo }: { demo: boolean }) {
               ['Refunds (request date)', rupees(data.refundPaise)],
             ].map(([t, v]) => (
               <div className="surface live-kpi" key={t}>
-                <p>{t}</p>
+                <p>
+                  <L en={String(t)} />
+                </p>
                 <strong>{v}</strong>
               </div>
             ))}
@@ -1006,7 +1472,10 @@ function Reports({ demo }: { demo: boolean }) {
               <div className="ops-item" key={v.day}>
                 <strong>{v.day}</strong>
                 <p>
-                  {v.visits} appointments · {v.completed} completed · {v.online} online
+                  <T
+                    en={'{0} appointments · {1} completed · {2} online'}
+                    values={[v.visits, v.completed, v.online]}
+                  />
                 </p>
                 <progress
                   value={v.completed}
@@ -1023,7 +1492,10 @@ function Reports({ demo }: { demo: boolean }) {
             {data.collections.map((c) => (
               <div className="ops-item live-card-head" key={c.method}>
                 <span>
-                  {human(c.method)} · {c.transactions} transactions
+                  <T
+                    en={'{0} · {1} transactions'}
+                    values={[<L key="v0" en={human(c.method)} />, c.transactions]}
+                  />
                 </span>
                 <strong>{rupees(c.total)}</strong>
               </div>
@@ -1040,6 +1512,7 @@ function Reports({ demo }: { demo: boolean }) {
 }
 const roles = ['doctor', 'receptionist', 'billing', 'nurse', 'content_manager', 'super_admin'];
 function Team({ demo }: { demo: boolean }) {
+  const tx = useT();
   const [rows, setRows] = useState<
       { id: string; name: string; active: boolean; self: boolean; roles: string[] }[]
     >([]),
@@ -1106,7 +1579,7 @@ function Team({ demo }: { demo: boolean }) {
                 .filter((r) => !['doctor', 'super_admin'].includes(r))
                 .map((r) => (
                   <option key={r} value={r}>
-                    {human(r)}
+                    {tx(human(r))}
                   </option>
                 ))}
             </select>
@@ -1120,7 +1593,7 @@ function Team({ demo }: { demo: boolean }) {
         {rows.map((r) => (
           <div className="ops-item stack" key={r.id}>
             <strong>
-              {r.name} {r.self ? '(you)' : ''}
+              {r.name} <L en={r.self ? '(you)' : ''} />
             </strong>
             {roles.map((role) => (
               <label className="check-field" key={role}>
@@ -1143,7 +1616,7 @@ function Team({ demo }: { demo: boolean }) {
                     )
                   }
                 />
-                {human(role)}
+                <L en={human(role)} />
               </label>
             ))}
             {!r.self && (
@@ -1152,7 +1625,7 @@ function Team({ demo }: { demo: boolean }) {
                 disabled={a.busy || !r.active}
                 onClick={() =>
                   void a.run(async () => {
-                    if (!confirm('Replace this member’s branch roles?')) return;
+                    if (!confirm(tx('Replace this member’s branch roles?'))) return;
                     if (!demo) {
                       await v2('team/roles', { member: r.id, roles: r.roles });
                       await load();
@@ -1228,9 +1701,18 @@ function Notifications({ demo }: { demo: boolean }) {
       {rows.map((r, i) => (
         <div className="ops-item live-card-head" key={i}>
           <div>
-            <strong>{human(r.template_key)}</strong>
+            <strong>
+              <L en={human(r.template_key)} />
+            </strong>
             <p>
-              {human(r.channel)} · {r.attempts} attempt(s) · {r.last_error_code || 'No error'}
+              <T
+                en={'{0} · {1} attempt(s) · {2}'}
+                values={[
+                  <L key="v0" en={human(r.channel)} />,
+                  r.attempts,
+                  r.last_error_code || <L en={'No error'} />,
+                ]}
+              />
             </p>
           </div>
           <Badge tone={r.state === 'sent' ? 'green' : r.state === 'dead_letter' ? 'amber' : 'neutral'}>
@@ -1277,7 +1759,7 @@ function Inquiries({ demo }: { demo: boolean }) {
             <Badge>{human(r.state)}</Badge>
           </div>
           <p>
-            {r.phone} · {human(r.category)}
+            {r.phone} · <L en={human(r.category)} />
           </p>
           {r.state !== 'closed' && (
             <div className="live-actions">
@@ -1306,6 +1788,7 @@ function Inquiries({ demo }: { demo: boolean }) {
   );
 }
 function PatientEdit({ demo }: { demo: boolean }) {
+  const tx = useT();
   const [q, setQ] = useState(''),
     [rows, setRows] = useState<{ id: string; name: string; mrn: string; birthDate: string | null }[]>([]),
     [id, setId] = useState(''),
@@ -1319,7 +1802,7 @@ function PatientEdit({ demo }: { demo: boolean }) {
         Check the MRN and identity before changing demographics. Contact verification and record merges are
         intentionally separate.
       </Notice>
-      <Field label="Search by patient name / MRN">
+      <Field label="Search by name, UHID, mobile or booking reference">
         <input value={q} onChange={(e) => setQ(e.target.value)} />
       </Field>
       <Button
@@ -1347,10 +1830,10 @@ function PatientEdit({ demo }: { demo: boolean }) {
             setGender('');
           }}
         >
-          <option value="">Choose record</option>
+          <option value="">{tx('Choose record')}</option>
           {rows.map((r) => (
             <option key={r.id} value={r.id}>
-              {r.name} · {r.mrn}
+              {tx(String(r.name))} · {tx(String(r.mrn))}
             </option>
           ))}
         </select>
@@ -1373,10 +1856,10 @@ function PatientEdit({ demo }: { demo: boolean }) {
           </Field>
           <Field label="Gender (optional)">
             <select value={gender} onChange={(e) => setGender(e.target.value)}>
-              <option value="">Not recorded</option>
+              <option value="">{tx('Not recorded')}</option>
               {['female', 'male', 'other', 'not_disclosed'].map((g) => (
                 <option key={g} value={g}>
-                  {human(g)}
+                  {tx(human(g))}
                 </option>
               ))}
             </select>
@@ -1390,7 +1873,15 @@ function PatientEdit({ demo }: { demo: boolean }) {
     </Panel>
   );
 }
-export function ExtendedPanel({ section, demo = false }: { section: string; demo?: boolean }) {
+export function ExtendedPanel({
+  section,
+  demo = false,
+  canApproveMerges = false,
+}: {
+  section: string;
+  demo?: boolean;
+  canApproveMerges?: boolean;
+}) {
   switch (section) {
     case 'history':
       return <PatientTimeline demo={demo} />;
@@ -1404,6 +1895,14 @@ export function ExtendedPanel({ section, demo = false }: { section: string; demo
       return <QueuePanel demo={demo} />;
     case 'leave':
       return <Leaves demo={demo} />;
+    case 'affected-bookings':
+      return <AffectedBookings demo={demo} />;
+    case 'desk-refunds':
+      return <DeskRefunds demo={demo} />;
+    case 'rx-withdrawals':
+      return <RxWithdrawals demo={demo} />;
+    case 'duplicates':
+      return <DuplicatePatients demo={demo} canApprove={canApproveMerges} />;
     case 'analytics':
       return <Reports demo={demo} />;
     case 'team-management':
@@ -1429,6 +1928,7 @@ export function ExtendedWorkspace({
   demo?: boolean;
   context?: StaffContext;
 }) {
+  const tx = useT();
   const nav = extendedNav.filter(
     (x) => x.roles.includes(role) && (demo || x.perms.some((p) => context?.permissions.includes(p))),
   );
@@ -1436,8 +1936,10 @@ export function ExtendedWorkspace({
     <div className="live-shell">
       <aside className="live-sidebar">
         <Brand href="/login" sub="HMS workspace" />
-        <p className="eyebrow">{human(role)} workspace</p>
-        <nav aria-label="Workspace navigation">
+        <p className="eyebrow">
+          <T en={'{0} workspace'} values={[<L key="v0" en={human(role)} />]} />
+        </p>
+        <nav aria-label={tx('Workspace navigation')}>
           <a href={'/' + role}>
             <Icon name="grid" />
             <L en="Overview" />
@@ -1460,16 +1962,22 @@ export function ExtendedWorkspace({
       <main id="main" className="live-main">
         <header className="live-card-head">
           <div>
-            <span className="eyebrow">{demo ? 'Interactive preview' : 'Secure hospital operations'}</span>
+            <span className="eyebrow">
+              <L en={demo ? 'Interactive preview' : 'Secure hospital operations'} />
+            </span>
             <h1>
               <L en={nav.find((n) => n.id === section)?.label || 'Restricted module'} />
             </h1>
-            <p>{demo ? 'Fictional data — no live writes' : context?.name}</p>
+            <p>{demo ? <L en={'Fictional data — no live writes'} /> : context?.name}</p>
           </div>
           <Badge tone="teal">{demo ? 'Demo' : 'MFA verified'}</Badge>
         </header>
         {nav.some((n) => n.id === section) ? (
-          <ExtendedPanel section={section} demo={demo} />
+          <ExtendedPanel
+            section={section}
+            demo={demo}
+            canApproveMerges={demo ? role === 'admin' : !!context?.permissions.includes('settings.manage')}
+          />
         ) : (
           <Notice tone="warning">Access not permitted.</Notice>
         )}
@@ -1537,7 +2045,9 @@ export function PatientRecords({ demo = false }: { demo?: boolean }) {
             <Panel title="My profile">
               <h3>{records.profile?.name}</h3>
               <p>{records.profile?.mrn}</p>
-              <p>Request identity corrections through hospital reception.</p>
+              <p>
+                <L en={'Request identity corrections through hospital reception.'} />
+              </p>
               <Button href="/my-bookings">
                 <L en="View appointments" />
               </Button>
@@ -1546,7 +2056,7 @@ export function PatientRecords({ demo = false }: { demo?: boolean }) {
               {records.prescriptions.map((r) => (
                 <div className="ops-item live-card-head" key={r.id}>
                   <span>
-                    {r.doctor} · version {r.version}
+                    <T en={'{0} · version {1}'} values={[r.doctor, r.version]} />
                   </span>
                   <Button variant="secondary" onClick={() => setRx(r)}>
                     <L en="View prescription" />
@@ -1560,7 +2070,7 @@ export function PatientRecords({ demo = false }: { demo?: boolean }) {
                 <div className="ops-item" key={i.invoice_number}>
                   <strong>{i.invoice_number}</strong>
                   <p>
-                    {rupees(i.total_paise)} · {human(i.status)}
+                    {rupees(i.total_paise)} · <L en={human(i.status)} />
                   </p>
                   <p>{i.reference}</p>
                 </div>
@@ -1569,8 +2079,11 @@ export function PatientRecords({ demo = false }: { demo?: boolean }) {
             <Documents patient demo={demo} />
             <Panel title="Communication preferences">
               <p>
-                Opt in to generic appointment updates. Only verified contact channels are eligible; no
-                marketing consent is implied.
+                <L
+                  en={
+                    'Opt in to generic appointment updates. Only verified contact channels are eligible; no marketing consent is implied.'
+                  }
+                />
               </p>
               {['whatsapp', 'sms', 'email'].map((channel) => (
                 <label key={channel} className="check-field">
@@ -1591,7 +2104,7 @@ export function PatientRecords({ demo = false }: { demo?: boolean }) {
                       );
                     }}
                   />
-                  {human(channel)}
+                  <L en={human(channel)} />
                 </label>
               ))}
             </Panel>

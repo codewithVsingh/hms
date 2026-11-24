@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Brand, Button, Field, Notice } from '@hms/ui';
+import { Brand, Button, Field, Notice, L } from '@hms/ui';
 import { Captcha } from './captcha';
 import { v2 } from './v2-client';
 export function Recovery({ reset = false, demo = false }: { reset?: boolean; demo?: boolean }) {
@@ -43,11 +43,17 @@ export function Recovery({ reset = false, demo = false }: { reset?: boolean; dem
         }}
       >
         <Brand href="/login" />
-        <h1>{reset ? 'Set a new password' : 'Recover account'}</h1>
+        <h1>
+          <L en={reset ? 'Set a new password' : 'Recover account'} />
+        </h1>
         <p>
-          {reset
-            ? 'Use a unique password of at least 12 characters.'
-            : 'Enter your hospital-issued work email.'}
+          <L
+            en={
+              reset
+                ? 'Use a unique password of at least 12 characters.'
+                : 'Enter your hospital-issued work email.'
+            }
+          />
         </p>
         <Field label={reset ? 'New password' : 'Work email'}>
           <input
@@ -64,7 +70,9 @@ export function Recovery({ reset = false, demo = false }: { reset?: boolean; dem
           {reset ? 'Set password' : 'Send recovery link'}
         </Button>
         {msg && <Notice>{msg}</Notice>}
-        <a href="/login">Return to sign in</a>
+        <a href="/login">
+          <L en={'Return to sign in'} />
+        </a>
       </form>
     </main>
   );

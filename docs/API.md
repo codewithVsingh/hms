@@ -23,3 +23,53 @@ All portal endpoints use `/api/v1/`. GET public catalog/slots returns minimal pu
 | POST | staff/refunds/create, staff/refunds/check | Explicit admin approval and provider refund reconciliation |
 
 Private RPCs with server-only settlement permissions: `hms_claim_order`, `hms_attach_order`, `hms_lookup_order`, `hms_capture_payment`, `hms_apply_refund`. Public website RPCs: `hms_catalog`, `hms_available_slots`, `hms_public_content`. See migration files for exact argument types, grants and domain invariants. No automatic webhook refund handling is implemented.
+
+
+## Health check
+
+`GET /api/health` (portal). Without credentials it returns only `{"status":"ok"|"degraded"}` (HTTP 200/503) for uptime monitors. With `Authorization: Bearer <CRON_SECRET>` it adds the mode (demo/live), payment mode, which configuration groups are present (never values) and a database round trip. Responses are `no-store`.
+
+
+## Doctor unavailability (v2)
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `leaves` | Record leave `{doctorId, start, end, reason}`; returns `{leaveId, affected}`. No longer refused when bookings exist. |
+| GET | `leaves/affected` | Live bookings overlapping current/future leave (reception/admin) |
+| POST | `appointments/hospital-cancel` | `{id, reason}`: hospital cancellation, full refund (online → admin approval; desk → desk refunds) |
+| GET | `refunds/desk` | Desk refunds waiting to be handed back (billing) |
+| POST | `refunds/desk` | `{id, method}`: record a desk refund as given |
+
+
+## Prescription corrections (v3)
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `prescription/amend` | `{id, items, followUp, reason, note, attest}`: new version (issuing doctor, within window) |
+| POST | `prescription/withdraw` | `{id, reason, note}`: request withdrawal (issuing doctor) |
+| POST | `prescription/withdraw/cancel` | `{id}`: requester cancels a pending request |
+| POST | `prescription/withdraw/decide` | `{id, approve, note}`: second person confirms or rejects (note required to reject) |
+| GET | `prescription/withdrawals` | Pending requests for doctors and admins |
+| GET | `prescription/history?id=` | All versions with reasons and decisions (clinicians) |
+| POST | `prescription/recall` | `{id}`: reception marks a paper copy of a replaced/withdrawn version recalled |
+
+Rules: [BUSINESS_RULES.md](BUSINESS_RULES.md) §7.
+
+
+## Duplicate patients (v1 and v3)
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | v1 `bookings/create` | Now requires `birthDate` (YYYY-MM-DD, 18+) |
+| POST | v1 `staff/register/check` | `{name, phone?, birthDate?, gender?}` → possible existing records (last 4 mobile digits only) |
+| POST | v1 `staff/register` | Adds `gender?` and `override?` (reason, required when matches exist; otherwise `POSSIBLE_DUPLICATE`) |
+| GET | v3 `patients/duplicates` | Open duplicate flags (reception/admin) |
+| POST | v3 `patients/duplicates/check` | `{patientId}`: check one record, opens flags |
+| POST | v3 `patients/duplicates/dismiss` | `{id, note}`: not the same person |
+| GET | v3 `patients/merges` | Pending and recent merges, undo availability |
+| POST | v3 `patients/merges` | `{a, b, note}`: propose (first-registered UHID survives) |
+| POST | v3 `patients/merges/cancel` | `{id}`: proposer cancels |
+| POST | v3 `patients/merges/decide` | `{id, approve, idCheck, choices, note}`: administrator, not the proposer |
+| POST | v3 `patients/merges/undo` | `{id, note}`: administrator |
+
+Rules: [BUSINESS_RULES.md](BUSINESS_RULES.md) §10.

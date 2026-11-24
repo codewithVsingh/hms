@@ -2257,6 +2257,14 @@ body {
   min-width: 0;
   width: 100%;
 }
+/* Checkboxes and radios inside panels keep their own size (the rule above made them full width,
+   squeezing the label text of attestation checkboxes into a one-letter column). */
+.ops-panel .check-field input,
+.ops-panel input[type='checkbox'],
+.ops-panel input[type='radio'] {
+  width: 18px;
+  min-width: 18px;
+}
 .ops-muted {
   font-size: 12px;
   color: var(--muted);

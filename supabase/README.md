@@ -25,11 +25,20 @@ Apply in a **new development Supabase project first**. Do not paste all scripts 
 | 0016_reconciliation_and_events | Read-only payment reconciliation and event notifications |
 | 0017_patient_numbers_and_history | Short references, doctor timeline, reception prescription register |
 | 0018_cancellation_policy | Policy versions, verified lookup, cancellation ledger and policy refunds |
+| 0019_random_references_and_audit_guard | Random unambiguous booking references, append-only audit log (file `202611250019_…`) |
+| 0020_patient_search_audit | Patient search by mobile and booking reference; searches audited (file `202611250020_…`) |
+| 0021_doctor_unavailability | Leave reasons, affected bookings, hospital cancellation with full refund, desk refunds (file `202611250021_…`) |
+| 0022_prescription_corrections | Prescription versions, amendment window, two-person withdrawal, paper recall (file `202611250022_…`) |
+| 0023_duplicate_patients | Duplicate detection, DOB-required online booking, two-person merge with undo, UHID aliases (file `202611250023_…`) |
 
-Actual filenames begin with `202611240001` through `202611240018`. For a fresh database apply all eighteen in order. Existing Phase 3 database: apply only 017–018. Existing Phase 2 database: 011–018; Phase 1: 006–018, provided previous migrations are unchanged. Use migration history and backups, not blind reapplication. Original 001–010 are preserved. New migrations have not been executed against PostgreSQL here.
+Actual filenames begin with `202611240001` through `202611240018`, then `202611250019`–`202611250023`. For a fresh database apply all twenty-three in order. Existing Phase 3 database: apply only 017–023. Existing Phase 2 database: 011–023; Phase 1: 006–023, provided previous migrations are unchanged. Use migration history and backups, not blind reapplication. Original 001–010 are preserved. Migration 012 contained a syntax error that made it impossible to apply; it was corrected in place (no database can have recorded it as applied) — if you attempted it before, simply apply it now and continue with 013+.
+
+## Automated database tests
+
+`tests/local/run.sh` creates a disposable PostgreSQL database, applies a Supabase role/schema shim and all migrations, runs the `verify_*.sql` scripts, behavioural security tests and a concurrent-booking race. CI runs it on every pull request. Never run it against a real Supabase project. See `../docs/DATABASE_ARCHITECTURE.md` and `../docs/TEST_REPORT.md`.
 
 1. Apply migrations using Supabase CLI (recommended) or SQL Editor one file at a time.
-2. Run `tests/verify_baseline.sql`, then `tests/verify_live.sql`, then `tests/verify_phase3.sql` and `tests/verify_phase4.sql`. These check privileges and key schema safeguards, not full functional/security certification.
+2. Run `tests/verify_baseline.sql`, then `tests/verify_live.sql`, then `tests/verify_phase3.sql`, `tests/verify_phase4.sql` and `tests/verify_duplicates.sql`. These check privileges and key schema safeguards, not full functional/security certification.
 3. Invite/create the actual administrator, doctor and receptionist in Supabase Auth. Configure staff password policy and TOTP MFA. Enable SMS phone auth and configure a supported provider plus Turnstile CAPTCHA. Configure signup and auth rate limits.
 4. Edit all placeholders and approved fee in `setup/01_provision_hospital.sql`; execute once. It provisions one organization/branch, one doctor, one administrator, and receptionist + billing roles. Use the same pattern for additional doctors/staff, and assign least privilege. Keep booking and online payment disabled initially.
 5. In the live portal, sign in with email/password and MFA. Set real doctor bio/registration in DB if needed, publish verified doctor, create schedules, generate slots. Add/approve/publish actual privacy/booking/refund and hospital pages. Connect payment test keys and webhook before enabling any checkout.

@@ -2,14 +2,14 @@ import { publicLive } from '../lib/live';
 import { LiveHome } from '../components/live';
 import { Hero } from '../components/hero';
 import { ServicesGrid, DoctorsGrid, ArticlesGrid, FAQ } from '../components/catalog';
-import { Button, Icon, SectionHeading, L, LanguageLink } from '@hms/ui';
+import { Aria, Button, Icon, SectionHeading, L, LanguageLink } from '@hms/ui';
 import { portalUrl } from '../lib/config';
 export default function Home() {
   if (publicLive) return <LiveHome />;
   return (
     <>
       <Hero />
-      <section className="quick-panel site-container animate-in delay-2" aria-label="Quick services">
+      <Aria as="section" className="quick-panel site-container animate-in delay-2" label="Quick services">
         <LanguageLink href={`${portalUrl}/book`}>
           <span className="icon-tile">
             <Icon name="calendar" />
@@ -66,7 +66,7 @@ export default function Home() {
           </div>
           <Icon name="chevron" />
         </a>
-      </section>
+      </Aria>
       <section className="site-section site-container">
         <SectionHeading
           eyebrow="Our specialties"

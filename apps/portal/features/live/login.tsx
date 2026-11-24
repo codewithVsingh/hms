@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Brand, Button, Field, Notice, Icon, L } from '@hms/ui';
+import { Brand, Button, Field, Notice, Icon, L, T } from '@hms/ui';
 import { api, message } from './client';
 import { Captcha } from './captcha';
 export function LiveLogin({ websiteUrl }: { websiteUrl: string }) {
@@ -79,7 +79,9 @@ export function LiveLogin({ websiteUrl }: { websiteUrl: string }) {
           }}
         >
           <Brand name={process.env.NEXT_PUBLIC_HOSPITAL_NAME || 'Hospital'} href={websiteUrl} />
-          <h2>{factor ? 'Verify your identity' : 'Welcome back.'}</h2>
+          <h2>
+            <L en={factor ? 'Verify your identity' : 'Welcome back.'} />
+          </h2>
           {!factor ? (
             <>
               <Field label="Work email">
@@ -106,8 +108,16 @@ export function LiveLogin({ websiteUrl }: { websiteUrl: string }) {
             <>
               {factor.secret && (
                 <Notice>
-                  First-time MFA setup: in an authenticator app, add a time-based account using this setup
-                  key. Keep it private. <code className="setup-secret">{factor.secret}</code>
+                  <T
+                    en={
+                      'First-time MFA setup: in an authenticator app, add a time-based account using this setup key. Keep it private. {0}'
+                    }
+                    values={[
+                      <code key="v0" className="setup-secret">
+                        {factor.secret}
+                      </code>,
+                    ]}
+                  />
                 </Notice>
               )}
               <Field label="6-digit authenticator code">
@@ -125,7 +135,7 @@ export function LiveLogin({ websiteUrl }: { websiteUrl: string }) {
           )}
           {error && (
             <div role="alert" className="form-error">
-              {error}
+              <L en={error} />
             </div>
           )}
           <Button type="submit" disabled={busy || (!factor && !captcha) || (!!factor && code.length !== 6)}>

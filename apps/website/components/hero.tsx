@@ -1,8 +1,8 @@
-import { Icon, Button, L } from '@hms/ui';
+import { Aria, Icon, Button, L } from '@hms/ui';
 import { portalUrl } from '../lib/config';
 export function HospitalIllustration() {
   return (
-    <div className="hero-visual" aria-label="Illustration of a modern healthcare facility" role="img">
+    <Aria as="div" className="hero-visual" label="Illustration of a modern healthcare facility" role="img">
       <svg viewBox="0 0 600 465" className="hospital-art" aria-hidden="true">
         <defs>
           <linearGradient id="sky" x1="0" x2="1" y1="0" y2="1">
@@ -33,7 +33,7 @@ export function HospitalIllustration() {
         <rect x="185" y="138" width="27" height="27" rx="7" fill="#0a7469" />
         <path d="M198.5 144v15M191 151.5h15" stroke="white" strokeWidth="4" strokeLinecap="round" />
         <text x="224" y="157" fill="#165b55" fontFamily="Arial" fontWeight="700" fontSize="16">
-          aarogya care
+          <L en={'aarogya care'} />
         </text>
         <path d="M456 167h29v169h-29z" fill="url(#glass)" />
         <path d="M132 342h304v44H132z" fill="#d6eae1" />
@@ -69,8 +69,12 @@ export function HospitalIllustration() {
           <Icon name="calendar" size={22} />
         </span>
         <div>
-          <strong>Easy appointments</strong>
-          <small>Choose a convenient time</small>
+          <strong>
+            <L en={'Easy appointments'} />
+          </strong>
+          <small>
+            <L en={'Choose a convenient time'} />
+          </small>
         </div>
       </div>
       <div className="float-card float-bottom">
@@ -78,12 +82,18 @@ export function HospitalIllustration() {
           <Icon name="heart" size={22} />
         </span>
         <div>
-          <strong>Care made personal</strong>
-          <small>One connected journey</small>
+          <strong>
+            <L en={'Care made personal'} />
+          </strong>
+          <small>
+            <L en={'One connected journey'} />
+          </small>
         </div>
       </div>
-      <span className="visual-caption">Illustrative facility · Demo</span>
-    </div>
+      <span className="visual-caption">
+        <L en={'Illustrative facility · Demo'} />
+      </span>
+    </Aria>
   );
 }
 export function Hero() {

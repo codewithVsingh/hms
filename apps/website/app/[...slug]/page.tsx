@@ -3,7 +3,7 @@ import { LivePage } from '../../components/live';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { doctors, services, articles } from '@hms/types';
-import { Button, Icon, Notice, Badge, L } from '@hms/ui';
+import { Aria, Button, Icon, Notice, Badge, L, T } from '@hms/ui';
 import { DoctorsGrid, ServicesGrid, ArticlesGrid, DoctorPortrait, FAQ } from '../../components/catalog';
 import { portalUrl } from '../../lib/config';
 const policies: Record<string, { title: string; sections: [string, string][] }> = {
@@ -128,22 +128,32 @@ function InnerHero({ title, description, parts }: { title: string; description: 
   return (
     <section className="inner-hero">
       <div className="site-container animate-in">
-        <nav className="breadcrumbs" aria-label="Breadcrumb">
+        <Aria as="nav" className="breadcrumbs" label="Breadcrumb">
           <a href="/">
             <L en="Home" />
           </a>
           <Icon name="chevron" size={13} />
           {parts.length > 1 && (
             <>
-              <a href={parts[0] === 'policies' ? '/contact' : `/${parts[0]}`}>{parts[0].replace('-', ' ')}</a>
+              <a href={parts[0] === 'policies' ? '/contact' : `/${parts[0]}`}>
+                <L en={parts[0].replace('-', ' ')} />
+              </a>
               <Icon name="chevron" size={13} />
             </>
           )}
-          <span>{title}</span>
-        </nav>
-        <span className="eyebrow">Aarogya Care</span>
-        <h1>{title}</h1>
-        <p>{description}</p>
+          <span>
+            <L en={title} />
+          </span>
+        </Aria>
+        <span className="eyebrow">
+          <L en={'Aarogya Care'} />
+        </span>
+        <h1>
+          <L en={title} />
+        </h1>
+        <p>
+          <L en={description} />
+        </p>
       </div>
     </section>
   );
@@ -166,13 +176,26 @@ export default async function PublicPage({ params }: { params: Promise<{ slug: s
       <div className="detail-grid">
         <article className="surface detail-card">
           <Badge tone="teal">{d.specialty}</Badge>
-          <h2 style={{ marginTop: 16 }}>About this profile</h2>
+          <h2 style={{ marginTop: 16 }}>
+            <L en={'About this profile'} />
+          </h2>
           <p>
-            {d.bio} Qualifications, registration number, experience and actual credentials must be verified by
-            the hospital before publication.
+            <T
+              en={
+                '{0} Qualifications, registration number, experience and actual credentials must be verified by the hospital before publication.'
+              }
+              values={[d.bio]}
+            />
           </p>
-          <h3>Consultation information</h3>
-          <p>Sample availability: {d.availability}. Consultation fee shown is for demonstration only.</p>
+          <h3>
+            <L en={'Consultation information'} />
+          </h3>
+          <p>
+            <T
+              en={'Sample availability: {0}. Consultation fee shown is for demonstration only.'}
+              values={[d.availability]}
+            />
+          </p>
           <Notice tone="warning">This is not a real doctor's profile.</Notice>
         </article>
         <aside className="surface detail-card">
@@ -181,7 +204,7 @@ export default async function PublicPage({ params }: { params: Promise<{ slug: s
             <L en="Schedule a visit" />
           </h2>
           <p>
-            <strong>₹{d.fee}</strong> · sample consultation fee
+            <T en={'{0} · sample consultation fee'} values={[<strong key="v0">₹{d.fee}</strong>]} />
           </p>
           <Button href={`${portalUrl}/book?doctor=${d.slug}`} icon="calendar">
             Book a demo visit
@@ -201,19 +224,28 @@ export default async function PublicPage({ params }: { params: Promise<{ slug: s
           <span className="icon-tile">
             <Icon name={s.icon} />
           </span>
-          <h2>About this service</h2>
+          <h2>
+            <L en={'About this service'} />
+          </h2>
           <p>{s.detail}</p>
-          <h3>Preparing for your appointment</h3>
+          <h3>
+            <L en={'Preparing for your appointment'} />
+          </h3>
           <p>
-            Bring relevant records and discuss your concerns with your clinician. Actual service information
-            requires clinical approval.
+            <L
+              en={
+                'Bring relevant records and discuss your concerns with your clinician. Actual service information requires clinical approval.'
+              }
+            />
           </p>
         </article>
         <aside className="surface detail-card">
           <h2>
             <L en="Find a doctor" />
           </h2>
-          <p>Explore doctor profiles or start the sample booking flow.</p>
+          <p>
+            <L en={'Explore doctor profiles or start the sample booking flow.'} />
+          </p>
           <Button href="/doctors" variant="secondary">
             View doctors
           </Button>
@@ -233,12 +265,16 @@ export default async function PublicPage({ params }: { params: Promise<{ slug: s
       <div className="detail-grid">
         <article className="surface detail-card">
           <Badge tone="teal">{a.category}</Badge>
-          <h2 style={{ marginTop: 16 }}>Patient guide</h2>
-          <p>{a.minutes} min read · Draft content</p>
+          <h2 style={{ marginTop: 16 }}>
+            <L en={'Patient guide'} />
+          </h2>
+          <p>
+            <T en={'{0} min read · Draft content'} values={[a.minutes]} />
+          </p>
           {a.body.map((p, i) => (
             <div key={p}>
               <h3>
-                {i + 1}. {['Prepare', 'Discuss', 'Next steps'][i]}
+                {i + 1}. <L en={['Prepare', 'Discuss', 'Next steps'][i]} />
               </h3>
               <p>{p}</p>
             </div>
@@ -250,7 +286,9 @@ export default async function PublicPage({ params }: { params: Promise<{ slug: s
           </div>
         </article>
         <aside className="surface detail-card">
-          <h2>More resources</h2>
+          <h2>
+            <L en={'More resources'} />
+          </h2>
           {articles
             .filter((x) => x.slug !== slug)
             .map((x) => (
@@ -270,20 +308,34 @@ export default async function PublicPage({ params }: { params: Promise<{ slug: s
       <>
         <div className="detail-grid">
           <article className="surface detail-card">
-            <h2>A connected care journey</h2>
+            <h2>
+              <L en={'A connected care journey'} />
+            </h2>
             <p>
-              Aarogya Care is the fictional brand used to demonstrate a modern hospital website and connected
-              management portal. Replace this content with approved hospital information before launch.
+              <L
+                en={
+                  'Aarogya Care is the fictional brand used to demonstrate a modern hospital website and connected management portal. Replace this content with approved hospital information before launch.'
+                }
+              />
             </p>
-            <h3>Our proposed approach</h3>
+            <h3>
+              <L en={'Our proposed approach'} />
+            </h3>
             <p>
-              Clear information, straightforward appointments and thoughtful privacy controls across every
-              patient touchpoint.
+              <L
+                en={
+                  'Clear information, straightforward appointments and thoughtful privacy controls across every patient touchpoint.'
+                }
+              />
             </p>
           </article>
           <aside className="surface detail-card">
-            <h2>Explore the hospital</h2>
-            <p>Learn about the planned services, team and facilities.</p>
+            <h2>
+              <L en={'Explore the hospital'} />
+            </h2>
+            <p>
+              <L en={'Learn about the planned services, team and facilities.'} />
+            </p>
             <Button href="/facilities" variant="secondary">
               View facilities
             </Button>
@@ -302,8 +354,12 @@ export default async function PublicPage({ params }: { params: Promise<{ slug: s
               <span className="icon-tile">
                 <Icon name={i} />
               </span>
-              <h3>{t}</h3>
-              <p>{d}</p>
+              <h3>
+                <L en={t} />
+              </h3>
+              <p>
+                <L en={d} />
+              </p>
             </div>
           ))}
         </div>
@@ -321,14 +377,20 @@ export default async function PublicPage({ params }: { params: Promise<{ slug: s
             <h3>
               <L en="Hospital address" />
             </h3>
-            <p>Address and directions not configured.</p>
+            <p>
+              <L en={'Address and directions not configured.'} />
+            </p>
           </div>
           <div className="surface info-card">
             <span className="icon-tile">
               <Icon name="phone" />
             </span>
-            <h3>Reception & hours</h3>
-            <p>Phone, email and opening hours will be added after hospital verification.</p>
+            <h3>
+              <L en={'Reception & hours'} />
+            </h3>
+            <p>
+              <L en={'Phone, email and opening hours will be added after hospital verification.'} />
+            </p>
             <Button href={`${portalUrl}/book`}>Try booking</Button>
           </div>
         </div>
@@ -337,8 +399,12 @@ export default async function PublicPage({ params }: { params: Promise<{ slug: s
             <span className="icon-tile">
               <Icon name="map" size={28} />
             </span>
-            <h2 style={{ marginTop: 14 }}>Location preview</h2>
-            <p>Map integration pending verified address.</p>
+            <h2 style={{ marginTop: 14 }}>
+              <L en={'Location preview'} />
+            </h2>
+            <p>
+              <L en={'Map integration pending verified address.'} />
+            </p>
           </div>
         </div>
       </div>
@@ -355,8 +421,12 @@ export default async function PublicPage({ params }: { params: Promise<{ slug: s
             <span className="icon-tile">
               <Icon name={i} />
             </span>
-            <h3>{t}</h3>
-            <p>Illustrative facility listing; replace with verified details.</p>
+            <h3>
+              <L en={t} />
+            </h3>
+            <p>
+              <L en={'Illustrative facility listing; replace with verified details.'} />
+            </p>
           </div>
         ))}
       </div>
@@ -371,8 +441,12 @@ export default async function PublicPage({ params }: { params: Promise<{ slug: s
         <Notice tone="warning">Draft only. Requires hospital approval and legal review before use.</Notice>
         {p.sections.map(([h, d]) => (
           <section key={h}>
-            <h2>{h}</h2>
-            <p>{d}</p>
+            <h2>
+              <L en={h} />
+            </h2>
+            <p>
+              <L en={d} />
+            </p>
           </section>
         ))}
       </article>

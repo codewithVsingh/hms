@@ -1,6 +1,18 @@
 import * as React from 'react';
-import { L, Localized, LanguageLink } from './locale';
-export { L, Localized, LanguageSwitch, LanguageLink, useLanguage, translate, changeLanguage } from './locale';
+import { L, Aria, Localized, LanguageLink } from './locale';
+export {
+  L,
+  T,
+  When,
+  Aria,
+  useT,
+  Localized,
+  LanguageSwitch,
+  LanguageLink,
+  useLanguage,
+  translate,
+  changeLanguage,
+} from './locale';
 const paths: Record<string, React.ReactNode> = {
   cross: (
     <>
@@ -238,7 +250,7 @@ export function Brand({
   name?: string;
 }) {
   return (
-    <a className="brand" href={href} aria-label={`${name || 'Aarogya Care'} home`}>
+    <Aria as="a" className="brand" href={href} label="{0} home" values={[name || 'Aarogya Care']}>
       <span className="brand-mark">
         <Icon name="logo" size={26} />
       </span>
@@ -254,7 +266,7 @@ export function Brand({
           <L en={sub} />
         </small>
       </span>
-    </a>
+    </Aria>
   );
 }
 export function Button({
@@ -314,8 +326,12 @@ export function Empty({
       <span className="icon-tile">
         <Icon name={icon} size={25} />
       </span>
-      <h3>{title}</h3>
-      <p>{description}</p>
+      <h3>
+        <L en={title} />
+      </h3>
+      <p>
+        <L en={description} />
+      </p>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 import * as React from 'react';
-import { Brand, Button, Icon, Avatar, Badge, Notice, Field, Empty, L } from '@hms/ui';
+import { Brand, Button, Icon, Avatar, Badge, Notice, Field, Empty, L, T, useT } from '@hms/ui';
 import {
   doctors,
   articles,
@@ -41,7 +41,7 @@ type State = {
   filter: string;
   menu: boolean;
   modal: Modal | null;
-  toast: string;
+  toast: React.ReactNode;
   notifications: boolean;
   draftName: string;
   draftDoctor: string;
@@ -58,7 +58,7 @@ type State = {
   error: string;
   consults: { id: string; patient: string; status: string; note: string }[];
   prescriptions: { id: string; patient: string; status: string; item: string }[];
-  audit: { event: string; actor: string; time: string }[];
+  audit: { event: React.ReactNode; actor: string; time: string }[];
   contentStates: Record<string, string>;
   staffStates: Record<string, string>;
   schedule: Record<string, boolean>;
@@ -84,6 +84,8 @@ const statusTone = (status: string): 'neutral' | 'green' | 'amber' | 'blue' | 'r
       'Medical review': 'blue',
     }) as Record<string, 'neutral' | 'green' | 'amber' | 'blue' | 'red' | 'teal'>
   )[status] || 'neutral';
+/** Translate plain strings from demo data; leave elements and numbers untouched. */
+const lx = (v: React.ReactNode) => (typeof v === 'string' ? <L en={v} /> : v);
 function Status({ value }: { value: string }) {
   return <Badge tone={statusTone(value)}>{value}</Badge>;
 }
@@ -104,8 +106,14 @@ function Card({
     <section className={`surface work-card ${className}`}>
       <header className="card-head">
         <div>
-          <h2>{title}</h2>
-          {subtitle && <p>{subtitle}</p>}
+          <h2>
+            <L en={title} />
+          </h2>
+          {subtitle && (
+            <p>
+              <L en={subtitle} />
+            </p>
+          )}
         </div>
         {action}
       </header>
@@ -129,13 +137,15 @@ function Metric({
   return (
     <div className="surface metric">
       <div className="metric-top">
-        <span>{label}</span>
+        <span>
+          <L en={label} />
+        </span>
         <span className={`metric-icon metric-${tone}`}>
           <Icon name={icon} size={20} />
         </span>
       </div>
       <strong>{value}</strong>
-      <small>{sub}</small>
+      <small>{typeof sub === 'string' ? <L en={sub} /> : sub}</small>
     </div>
   );
 }
@@ -148,20 +158,23 @@ function Table({
   children: React.ReactNode;
   label: string;
 }) {
+  const tx = useT();
   return (
     <div
       className="table-wrap"
       tabIndex={0}
       role="region"
-      aria-label={`${label} table, scroll horizontally if needed`}
+      aria-label={tx('{0} table, scroll horizontally if needed').replace('{0}', tx(label))}
     >
       <table>
-        <caption className="sr-only">{label}</caption>
+        <caption className="sr-only">
+          <L en={label} />
+        </caption>
         <thead>
           <tr>
             {headers.map((h) => (
               <th key={h} scope="col">
-                {h}
+                {lx(h)}
               </th>
             ))}
           </tr>
@@ -213,7 +226,13 @@ const sectionDescriptions: Record<string, string> = {
   audit: 'Inspect local demo activity events.',
   settings: 'Review configuration and preferences.',
 };
-export class Workspace extends React.Component<{ role: Role; section: string; websiteUrl: string }, State> {
+type WorkspaceProps = { role: Role; section: string; websiteUrl: string };
+/** Supplies the translator to the class component, which cannot call hooks itself. */
+export function Workspace(props: WorkspaceProps) {
+  const tx = useT();
+  return <DemoWorkspace {...props} tx={tx} />;
+}
+class DemoWorkspace extends React.Component<WorkspaceProps & { tx: (en: string) => string }, State> {
   state: State = {
     appointments: initialAppointments.map((a) => ({ ...a })),
     patients: initialPatients.map((p) => ({ ...p })),
@@ -287,7 +306,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
       : this.state.patients;
   }
   link = (id: string) => `/${this.role}${id === 'dashboard' ? '' : `/${id}`}`;
-  flash = (message: string) =>
+  flash = (message: React.ReactNode) =>
     this.setState((s) => ({
       toast: message,
       audit: [{ event: message, actor: roleLabels[this.role], time: 'Just now' }, ...s.audit],
@@ -318,7 +337,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
       appointments: s.appointments.map((a) => (a.id === id ? { ...a, status } : a)),
       modal: null,
     }));
-    this.flash(`Demo appointment ${id}: ${status.toLowerCase()}.`);
+    this.flash(<T en="Demo appointment {0}: {1}." values={[id, <L key="s" en={status} />]} />);
   };
   save = () => {
     const s = this.state,
@@ -416,10 +435,20 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
       this.flash('Simulated collection recorded. No money collected.');
     } else if (m.kind === 'content') {
       this.setState((x) => ({ contentStates: { ...x.contentStates, [m.id!]: s.draftStatus }, modal: null }));
-      this.flash(`Demo content state changed to ${s.draftStatus}. Website not changed.`);
+      this.flash(
+        <T
+          en="Demo content state changed to {0}. Website not changed."
+          values={[<L key="s" en={s.draftStatus} />]}
+        />,
+      );
     } else if (m.kind === 'user') {
       this.setState((x) => ({ staffStates: { ...x.staffStates, [m.id!]: s.draftStatus }, modal: null }));
-      this.flash(`Demo membership state updated to ${s.draftStatus}. No account changed.`);
+      this.flash(
+        <T
+          en="Demo membership state updated to {0}. No account changed."
+          values={[<L key="s" en={s.draftStatus} />]}
+        />,
+      );
     }
   };
   get selectedSection() {
@@ -465,12 +494,12 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
                 {!compact && (
                   <>
                     <td>{a.doctor.replace('Dr. ', '')}</td>
-                    <td>{a.service}</td>
+                    <td>{lx(a.service)}</td>
                   </>
                 )}
                 <td>
-                  <strong className="table-strong">{a.time}</strong>
-                  <small className="table-sub">{a.date}</small>
+                  <strong className="table-strong">{lx(a.time)}</strong>
+                  <small className="table-sub">{lx(a.date)}</small>
                 </td>
                 <td>
                   <Status value={a.status} />
@@ -483,7 +512,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
                 <td>
                   <button
                     className="table-action"
-                    aria-label={`View ${a.id}`}
+                    aria-label={this.props.tx('View {0}').replace('{0}', a.id)}
                     onClick={() => this.open('appointment', 'Appointment details', a.id)}
                   >
                     <Icon name="chevron" size={18} />
@@ -502,13 +531,13 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
         <label className="search-box">
           <Icon name="search" size={18} />
           <input
-            aria-label={placeholder}
-            placeholder={placeholder}
+            aria-label={this.props.tx(placeholder)}
+            placeholder={this.props.tx(placeholder)}
             value={this.state.search}
             onChange={(e) => this.setState({ search: e.target.value })}
           />
           {this.state.search && (
-            <button aria-label="Clear search" onClick={() => this.setState({ search: '' })}>
+            <button aria-label={this.props.tx('Clear search')} onClick={() => this.setState({ search: '' })}>
               <Icon name="close" size={16} />
             </button>
           )}
@@ -516,12 +545,14 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
         {options && (
           <select
             className="control filter-select"
-            aria-label="Filter by status"
+            aria-label={this.props.tx('Filter by status')}
             value={this.state.filter}
             onChange={(e) => this.setState({ filter: e.target.value })}
           >
             {options.map((o) => (
-              <option key={o}>{o}</option>
+              <option key={o} value={o}>
+                {this.props.tx(o)}
+              </option>
             ))}
           </select>
         )}
@@ -567,20 +598,30 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
       <>
         <div className="welcome-panel animate-in">
           <div>
-            <span className="eyebrow">Hospital workspace</span>
+            <span className="eyebrow">
+              <L en={'Hospital workspace'} />
+            </span>
             <h2>
-              {this.role === 'doctor'
-                ? 'Your day, at a glance.'
-                : this.role === 'staff'
-                  ? 'Keep the day moving.'
-                  : 'Your hospital, at a glance.'}
+              <L
+                en={
+                  this.role === 'doctor'
+                    ? 'Your day, at a glance.'
+                    : this.role === 'staff'
+                      ? 'Keep the day moving.'
+                      : 'Your hospital, at a glance.'
+                }
+              />
             </h2>
             <p>
-              {this.role === 'doctor'
-                ? 'Review assigned appointments and prepare for your next consultation.'
-                : this.role === 'staff'
-                  ? 'Manage patient arrivals, appointments and collections from one place.'
-                  : 'Monitor appointments, staffing, collections and content workflows.'}
+              <L
+                en={
+                  this.role === 'doctor'
+                    ? 'Review assigned appointments and prepare for your next consultation.'
+                    : this.role === 'staff'
+                      ? 'Manage patient arrivals, appointments and collections from one place.'
+                      : 'Monitor appointments, staffing, collections and content workflows.'
+                }
+              />
             </p>
             <div className="flex wrap" style={{ marginTop: 16 }}>
               <Button href={this.link('appointments')} icon="calendar">
@@ -631,7 +672,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
             subtitle="Sample visits for your workspace"
             action={
               <a className="text-link" href={this.link('appointments')}>
-                View all <Icon name="arrow" size={15} />
+                <T en={'View all {0}'} values={[<Icon key="v0" name="arrow" size={15} />]} />
               </a>
             }
           >
@@ -650,7 +691,9 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
               >
                 <div>
                   <strong>{t.length}</strong>
-                  <small>Today</small>
+                  <small>
+                    <L en={'Today'} />
+                  </small>
                 </div>
               </div>
               {[
@@ -660,7 +703,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
               ].map(([l, n, c]) => (
                 <div className="legend" key={String(l)}>
                   <span style={{ background: String(c) }} />
-                  <strong>{l}</strong>
+                  <strong>{lx(l)}</strong>
                   <b>{n}</b>
                 </div>
               ))}
@@ -692,7 +735,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
                   <span className="icon-tile">
                     <Icon name={i} />
                   </span>
-                  <strong>{t}</strong>
+                  <strong>{lx(t)}</strong>
                   <Icon name="chevron" size={17} />
                 </a>
               ))}
@@ -706,9 +749,9 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
                     <Icon name="clock" size={17} />
                   </span>
                   <div className="grow">
-                    <strong>{a.event}</strong>
+                    <strong>{lx(a.event)}</strong>
                     <small>
-                      {a.actor} · {a.time}
+                      {lx(a.actor)} · {lx(a.time)}
                     </small>
                   </div>
                 </div>
@@ -778,12 +821,12 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
                 <td>{p.id}</td>
                 <td>{p.age}</td>
                 <td>{p.doctor}</td>
-                <td>{p.lastVisit}</td>
+                <td>{lx(p.lastVisit)}</td>
                 <td>
                   <button
                     className="table-action"
                     onClick={() => this.open('patient', 'Sample patient profile', p.id)}
-                    aria-label={`View ${p.name}`}
+                    aria-label={this.props.tx('View {0}').replace('{0}', p.name)}
                   >
                     <Icon name="chevron" size={18} />
                   </button>
@@ -816,7 +859,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
                     <div>
                       <strong>{a.patient}</strong>
                       <small>
-                        {a.time} · {a.id}
+                        {lx(a.time)} · {a.id}
                       </small>
                     </div>
                   </div>
@@ -829,7 +872,11 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
                   </Button>
                 </div>
               ))}
-            {!today.some((a) => a.status === status) && <p className="queue-empty">No sample visits</p>}
+            {!today.some((a) => a.status === status) && (
+              <p className="queue-empty">
+                <L en={'No sample visits'} />
+              </p>
+            )}
           </div>
         ))}
       </div>
@@ -926,7 +973,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
         <div className="schedule-list">
           {Object.entries(this.state.schedule).map(([d, active]) => (
             <div className="schedule-row" key={d}>
-              <strong>{d}</strong>
+              <strong>{lx(d)}</strong>
               <label className="check-field">
                 <input
                   type="checkbox"
@@ -935,9 +982,13 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
                     this.setState((s) => ({ schedule: { ...s.schedule, [d]: e.target.checked } }))
                   }
                 />
-                <span>{active ? 'Available' : 'Unavailable'}</span>
+                <span>
+                  <L en={active ? 'Available' : 'Unavailable'} />
+                </span>
               </label>
-              <span>{active ? '09:00 AM – 04:00 PM' : '—'}</span>
+              <span>
+                <L en={active ? '09:00 AM – 04:00 PM' : '—'} />
+              </span>
             </div>
           ))}
         </div>
@@ -987,7 +1038,9 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
           <Table label="Payments" headers={['Invoice', 'Patient', 'Doctor', 'Amount', 'Payment', 'Action']}>
             {a.map((v, i) => (
               <tr key={v.id}>
-                <td>INV-{2001 + i}</td>
+                <td>
+                  <T en={'INV-{0}'} values={[2001 + i]} />
+                </td>
                 <td>{v.patient}</td>
                 <td>{v.doctor}</td>
                 <td className="table-strong">
@@ -1002,7 +1055,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
                       className="text-link"
                       onClick={() => this.open('payment', 'Simulate payment collection', v.id)}
                     >
-                      Collect demo
+                      <L en={'Collect demo'} />
                     </button>
                   ) : (
                     <span className="muted">—</span>
@@ -1028,14 +1081,16 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
                 <Avatar initials={d.initials} color={d.color} size="lg" />
                 <div>
                   <strong>{d.name}</strong>
-                  <small>{d.specialty}</small>
+                  <small>{lx(d.specialty)}</small>
                 </div>
               </div>
               <div className="flex wrap">
                 <Badge tone="green">Demo active</Badge>
                 <span className="text-sm muted">{d.availability}</span>
               </div>
-              <p>Sample consultation fee: {formatINR(d.fee)}</p>
+              <p>
+                <T en={'Sample consultation fee: {0}'} values={[formatINR(d.fee)]} />
+              </p>
               <Button variant="secondary" href={`${this.props.websiteUrl}/doctors/${d.slug}`}>
                 View public profile
               </Button>
@@ -1060,13 +1115,15 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
                   <strong>{u.name}</strong>
                 </div>
               </td>
-              <td>{u.role}</td>
+              <td>{lx(u.role)}</td>
               <td>
                 <Status value={this.state.staffStates[u.name] || u.status} />
               </td>
               <td>
                 {u.role === 'Super admin' ? (
-                  <span className="muted">Protected</span>
+                  <span className="muted">
+                    <L en={'Protected'} />
+                  </span>
                 ) : (
                   <button
                     className="text-link"
@@ -1097,13 +1154,13 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
             {permissionRows.map(([p, ...roles]) => (
               <tr key={p}>
                 <td>
-                  <strong>{p}</strong>
+                  <strong>{lx(p)}</strong>
                 </td>
                 {roles.map((allowed, i) => (
                   <td key={i}>
                     {allowed ? (
                       <span className="permission-yes">
-                        <Icon name="check" size={16} /> Allowed
+                        <T en={'{0} Allowed'} values={[<Icon key="v0" name="check" size={16} />]} />
                       </span>
                     ) : (
                       <span className="muted">—</span>
@@ -1117,15 +1174,22 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
         <Card title="Access principles">
           <div className="card-pad stack">
             <p>
-              <strong>Least privilege:</strong> staff see only information needed to perform operational
-              tasks.
+              <T
+                en={'{0} staff see only information needed to perform operational tasks.'}
+                values={[<strong key="v0">Least privilege:</strong>]}
+              />
             </p>
             <p>
-              <strong>Clinical confidentiality:</strong> administrators do not automatically receive medical
-              record access.
+              <T
+                en={'{0} administrators do not automatically receive medical record access.'}
+                values={[<strong key="v0">Clinical confidentiality:</strong>]}
+              />
             </p>
             <p>
-              <strong>Database enforcement:</strong> UI menus are not security controls.
+              <T
+                en={'{0} UI menus are not security controls.'}
+                values={[<strong key="v0">Database enforcement:</strong>]}
+              />
             </p>
           </div>
         </Card>
@@ -1159,7 +1223,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
             <div className="report-bars">
               {statuses.map((s) => (
                 <div className="report-bar-row" key={s}>
-                  <span>{s}</span>
+                  <span>{lx(s)}</span>
                   <div>
                     <span
                       style={{
@@ -1218,20 +1282,20 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
                 <td>
                   <strong>{e.title}</strong>
                 </td>
-                <td>{e.type}</td>
+                <td>{lx(e.type)}</td>
                 <td>
                   <Status value={this.state.contentStates[e.id] || 'Draft'} />
                 </td>
                 <td>
                   <div className="flex wrap">
                     <a className="text-link" href={`${this.props.websiteUrl}${e.href}`}>
-                      Preview
+                      <L en={'Preview'} />
                     </a>
                     <button
                       className="text-link"
                       onClick={() => this.open('content', 'Preview content workflow', e.id)}
                     >
-                      Review
+                      <L en={'Review'} />
                     </button>
                   </div>
                 </td>
@@ -1249,10 +1313,10 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
           {this.state.audit.map((a, i) => (
             <tr key={i}>
               <td>
-                <strong>{a.event}</strong>
+                <strong>{lx(a.event)}</strong>
               </td>
-              <td>{a.actor}</td>
-              <td>{a.time}</td>
+              <td>{lx(a.actor)}</td>
+              <td>{lx(a.time)}</td>
             </tr>
           ))}
         </Table>
@@ -1272,7 +1336,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
               <Avatar initials={roleUsers[this.role].initials} size="lg" />
               <div>
                 <strong>{roleUsers[this.role].name}</strong>
-                <small>{roleUsers[this.role].title}</small>
+                <small>{lx(roleUsers[this.role].title)}</small>
               </div>
             </div>
             {this.role === 'admin' ? (
@@ -1314,7 +1378,9 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
                 </Field>
               </div>
             )}
-            <h3>Notification preferences</h3>
+            <h3>
+              <L en={'Notification preferences'} />
+            </h3>
             {(['email', 'sms'] as const).map((k) => (
               <label key={k} className="check-field">
                 <input
@@ -1324,7 +1390,9 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
                     this.setState((x) => ({ settings: { ...x.settings, [k]: e.target.checked } }))
                   }
                 />
-                <span>{k === 'email' ? 'Email alerts (preview)' : 'SMS reminders (preview)'}</span>
+                <span>
+                  <L en={k === 'email' ? 'Email alerts (preview)' : 'SMS reminders (preview)'} />
+                </span>
               </label>
             ))}
             <div>
@@ -1378,17 +1446,21 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
             ['Payment', a.payment],
           ].map(([k, v]) => (
             <div className="review-row" key={k}>
-              <span>{k}</span>
+              <span>{lx(k)}</span>
               <strong>{v}</strong>
             </div>
           ))}
           <div className="flex">
-            <span className="muted">Status</span>
+            <span className="muted">
+              <L en={'Status'} />
+            </span>
             <Status value={a.status} />
           </div>
           {this.role !== 'admin' && transition[a.status].length > 0 && (
             <div className="stack">
-              <h3>Update sample status</h3>
+              <h3>
+                <L en={'Update sample status'} />
+              </h3>
               <div className="flex wrap">
                 {transition[a.status]
                   .filter((x) =>
@@ -1426,7 +1498,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
             ['Last visit', p.lastVisit],
           ].map(([k, v]) => (
             <div className="review-row" key={k}>
-              <span>{k}</span>
+              <span>{lx(k)}</span>
               <strong>{v}</strong>
             </div>
           ))}
@@ -1490,7 +1562,9 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
             <Field label="Time">
               <select value={s.draftTime} onChange={(e) => this.setState({ draftTime: e.target.value })}>
                 {times.map((t) => (
-                  <option key={t}>{t}</option>
+                  <option key={t} value={t}>
+                    {this.props.tx(String(t))}
+                  </option>
                 ))}
               </select>
             </Field>
@@ -1555,11 +1629,15 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
         <>
           <Notice tone="warning">No money will be collected. This is an in-memory simulation.</Notice>
           <div className="review-row">
-            <span>Sample patient</span>
+            <span>
+              <L en={'Sample patient'} />
+            </span>
             <strong>{a.patient}</strong>
           </div>
           <div className="review-row">
-            <span>Amount</span>
+            <span>
+              <L en={'Amount'} />
+            </span>
             <strong>{formatINR(doctors.find((d) => d.name === a.doctor)?.fee || 500)}</strong>
           </div>
           <Field label="Payment method preview">
@@ -1638,8 +1716,8 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
           }}
         >
           <div className="modal-head">
-            <h2 id="modal-title">{m.title}</h2>
-            <button className="icon-button" aria-label="Close dialog" onClick={this.close}>
+            <h2 id="modal-title">{lx(m.title)}</h2>
+            <button className="icon-button" aria-label={this.props.tx('Close dialog')} onClick={this.close}>
               <Icon name="close" />
             </button>
           </div>
@@ -1647,7 +1725,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
             {content}
             {s.error && (
               <p role="alert" className="form-error">
-                {s.error}
+                {lx(s.error)}
               </p>
             )}
           </div>
@@ -1687,12 +1765,15 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
     };
     return (
       <div className="workspace">
-        <aside className={`sidebar ${s.menu ? 'sidebar-open' : ''}`} aria-label="Portal navigation">
+        <aside
+          className={`sidebar ${s.menu ? 'sidebar-open' : ''}`}
+          aria-label={this.props.tx('Portal navigation')}
+        >
           <div className="sidebar-brand">
             <Brand href={this.link('dashboard')} sub="HMS workspace" />
             <button
               className="icon-button sidebar-close"
-              aria-label="Close navigation"
+              aria-label={this.props.tx('Close navigation')}
               onClick={() => this.setState({ menu: false })}
             >
               <Icon name="close" />
@@ -1703,15 +1784,19 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
               <Icon name="building" size={18} />
             </span>
             <div className="grow">
-              <strong>Aarogya Care</strong>
-              <small>Main branch · Demo</small>
+              <strong>
+                <L en={'Aarogya Care'} />
+              </strong>
+              <small>
+                <L en={'Main branch · Demo'} />
+              </small>
             </div>
             <Icon name="down" size={15} />
           </div>
           <nav className="side-nav">
             {roleNav[role].map((g) => (
               <div key={g.group}>
-                <span className="nav-group">{g.group}</span>
+                <span className="nav-group">{lx(g.group)}</span>
                 {g.items.map((i) => (
                   <a
                     key={i.id}
@@ -1720,7 +1805,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
                     aria-current={section === i.id ? 'page' : undefined}
                   >
                     <Icon name={i.icon} size={19} />
-                    {i.label}
+                    {lx(i.label)}
                     {section === i.id && <span className="nav-active-dot" />}
                   </a>
                 ))}
@@ -1729,16 +1814,19 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
           </nav>
           <div className="sidebar-bottom">
             <a href={this.props.websiteUrl}>
-              <Icon name="eye" size={18} /> Public website <Icon name="arrow" size={14} />
+              <T
+                en={'{0} Public website {1}'}
+                values={[<Icon key="v0" name="eye" size={18} />, <Icon key="v1" name="arrow" size={14} />]}
+              />
             </a>
             <a href="/login">
-              <Icon name="logout" size={18} /> Exit demo role
+              <T en={'{0} Exit demo role'} values={[<Icon key="v0" name="logout" size={18} />]} />
             </a>
             <div className="sidebar-user">
               <Avatar initials={user.initials} />
               <div>
                 <strong>{user.name}</strong>
-                <small>{roleLabels[role]}</small>
+                <small>{lx(roleLabels[role])}</small>
               </div>
             </div>
           </div>
@@ -1746,7 +1834,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
         {s.menu && (
           <button
             className="mobile-scrim"
-            aria-label="Close navigation"
+            aria-label={this.props.tx('Close navigation')}
             onClick={() => this.setState({ menu: false })}
           />
         )}
@@ -1755,7 +1843,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
             <div className="flex grow">
               <button
                 className="icon-button mobile-toggle"
-                aria-label="Open navigation"
+                aria-label={this.props.tx('Open navigation')}
                 aria-expanded={s.menu}
                 onClick={() => this.setState({ menu: !s.menu })}
               >
@@ -1766,14 +1854,14 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
                   <L en="Workspace" />
                 </span>
                 <Icon name="chevron" size={15} />
-                <strong>{this.selectedSection.label}</strong>
+                <strong>{lx(this.selectedSection.label)}</strong>
               </span>
             </div>
             <Badge tone="amber">Demo mode</Badge>
             <div className="notification-wrap">
               <button
                 className="icon-button"
-                aria-label="Notifications"
+                aria-label={this.props.tx('Notifications')}
                 aria-expanded={s.notifications}
                 onClick={() => this.setState({ notifications: !s.notifications })}
               >
@@ -1782,10 +1870,14 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
               </button>
               {s.notifications && (
                 <div className="notification-pop surface">
-                  <strong>Notifications</strong>
-                  <p>No live reminders are connected. This is a demo workspace.</p>
+                  <strong>
+                    <L en={'Notifications'} />
+                  </strong>
+                  <p>
+                    <L en={'No live reminders are connected. This is a demo workspace.'} />
+                  </p>
                   <button className="text-link" onClick={() => this.setState({ notifications: false })}>
-                    Dismiss
+                    <L en={'Dismiss'} />
                   </button>
                 </div>
               )}
@@ -1796,24 +1888,40 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
             <div className="work-title">
               <div>
                 <div className="flex wrap">
-                  <span className="eyebrow">{roleLabels[role]} workspace</span>
+                  <span className="eyebrow">
+                    <T en={'{0} workspace'} values={[<L key="r" en={roleLabels[role]} />]} />
+                  </span>
                 </div>
                 <h1>
-                  {section === 'dashboard'
-                    ? `Welcome, ${role === 'doctor' ? 'Dr. Ananya' : role === 'staff' ? 'Reception team' : 'Admin'}.`
-                    : this.selectedSection.label}
+                  {section === 'dashboard' ? (
+                    <T
+                      en="Welcome, {0}."
+                      values={[
+                        role === 'doctor' ? (
+                          'Dr. Ananya'
+                        ) : (
+                          <L key="w" en={role === 'staff' ? 'Reception team' : 'Admin'} />
+                        ),
+                      ]}
+                    />
+                  ) : (
+                    lx(this.selectedSection.label)
+                  )}
                 </h1>
-                <p>{sectionDescriptions[section]}</p>
+                <p>{lx(sectionDescriptions[section])}</p>
               </div>
               <div className="day-chip">
-                <Icon name="calendar" size={17} /> Demo day
+                <T en={'{0} Demo day'} values={[<Icon key="v0" name="calendar" size={17} />]} />
               </div>
             </div>
             <div className="demo-banner">
               <Icon name="info" size={17} />
               <span>
-                Fictional data only. Actions reset when navigating or refreshing. No real authentication,
-                medical records or payments.
+                <L
+                  en={
+                    'Fictional data only. Actions reset when navigating or refreshing. No real authentication, medical records or payments.'
+                  }
+                />
               </span>
             </div>
             {s.toast && (
@@ -1821,7 +1929,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
                 <Notice tone="success">{s.toast}</Notice>
                 <button
                   className="icon-button"
-                  aria-label="Dismiss message"
+                  aria-label={this.props.tx('Dismiss message')}
                   onClick={() => this.setState({ toast: '' })}
                 >
                   <Icon name="close" size={17} />
@@ -1830,7 +1938,10 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
             )}
             <div className="page-content">{pages[section]?.()}</div>
             <footer className="work-footer">
-              Aarogya HMS · Phase 1 UI preview <span>Privacy-first architecture · Demo data</span>
+              <T
+                en={'Aarogya HMS · Phase 1 UI preview {0}'}
+                values={[<L key="p" en={'Privacy-first architecture · Demo data'} />]}
+              />
             </footer>
           </main>
         </div>

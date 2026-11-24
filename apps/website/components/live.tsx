@@ -1,4 +1,4 @@
-import { Button, Icon, SectionHeading, Notice, L } from '@hms/ui';
+import { Aria, Button, Icon, SectionHeading, Notice, L, T } from '@hms/ui';
 import {
   publicCatalog,
   publicContent,
@@ -25,7 +25,7 @@ export function PublicContact() {
           <h3>
             <L en="Hospital address" />
           </h3>
-          <p>{hospitalAddress || 'Contact the hospital for directions.'}</p>
+          <p>{hospitalAddress || <L en={'Contact the hospital for directions.'} />}</p>
           {hospitalAddress && (
             <a
               className="learn-link"
@@ -55,7 +55,7 @@ export function PublicContact() {
               {hospitalEmail}
             </a>
           )}
-          <p>{hospitalHours || 'Contact reception to confirm timings.'}</p>
+          <p>{hospitalHours || <L en={'Contact reception to confirm timings.'} />}</p>
         </article>
       </div>
       <article className="surface detail-card">
@@ -86,8 +86,14 @@ function DoctorCards({ doctors }: { doctors: PublicDoctor[] }) {
           <h3>{d.name}</h3>
           <p>{d.specialty}</p>
           <p>
-            Consultation ·{' '}
-            {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(d.feePaise / 100)}
+            <T
+              en={'Consultation · {0}'}
+              values={[
+                new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(
+                  d.feePaise / 100,
+                ),
+              ]}
+            />
           </p>
           <Button href={`/doctors/${d.slug}`} variant="secondary">
             <L en="View profile" />
@@ -127,16 +133,24 @@ function PageHero({ title, description }: { title: string; description?: string 
   return (
     <section className="inner-hero">
       <div className="site-container animate-in">
-        <nav className="breadcrumbs" aria-label="Breadcrumb">
+        <Aria as="nav" className="breadcrumbs" label="Breadcrumb">
           <a href="/">
             <L en="Home" />
           </a>
           <Icon name="chevron" size={13} />
-          <span>{title}</span>
-        </nav>
+          <span>
+            <L en={title} />
+          </span>
+        </Aria>
         <span className="eyebrow">{hospitalName}</span>
-        <h1>{title}</h1>
-        {description && <p>{description}</p>}
+        <h1>
+          <L en={title} />
+        </h1>
+        {description && (
+          <p>
+            <L en={description} />
+          </p>
+        )}
       </div>
     </section>
   );
@@ -274,7 +288,11 @@ export async function LivePage({ parts }: { parts: string[] }) {
               <L en="Professional profile" />
             </h2>
             <p>{d.specialty}</p>
-            {d.registrationNumber && <p>Medical registration: {d.registrationNumber}</p>}
+            {d.registrationNumber && (
+              <p>
+                <T en={'Medical registration: {0}'} values={[d.registrationNumber]} />
+              </p>
+            )}
             {d.bio && <p>{d.bio}</p>}
           </article>
           <aside className="surface detail-card">

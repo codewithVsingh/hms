@@ -1,8 +1,9 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
+import { hindiPortal } from './hi';
 export type Language = 'en' | 'hi';
 // Only reviewed static UI phrases. Never translate names, diagnoses, medication or notes automatically.
-const hindi: Record<string, string> = {
+const hindiBase: Record<string, string> = {
   'A simpler way to find the right doctor, schedule a visit and stay connected to your care — all in one place.':
     'सही डॉक्टर खोजें, मुलाकात का समय तय करें और अपनी देखभाल से जुड़े रहें — सब एक ही जगह।',
   'Privacy-first': 'गोपनीयता को प्राथमिकता',
@@ -109,7 +110,7 @@ const hindi: Record<string, string> = {
   'Install app': 'ऐप इंस्टॉल करें',
   'Install on your device': 'अपने डिवाइस पर इंस्टॉल करें',
   'Patient number or full name': 'रोगी संख्या या पूरा नाम',
-  'Prescription copy (PDF, PNG or JPEG)': 'पर्चे की प्रति (PDF, PNG या JPEG)',
+  'Prescription copy (PDF, PNG or JPEG)': 'प्रिस्क्रिप्शन की प्रति (PDF, PNG या JPEG)',
   'Late cancellation fee (₹)': 'देरी से रद्द करने का शुल्क (₹)',
   'Free cancellation cutoff (hours before appointment)': 'मुफ़्त रद्दीकरण की समय सीमा (अपॉइंटमेंट से पहले घंटे)',
   'Example: PT-000127 (existing MRN numbers also work)': 'उदाहरण: PT-000127 (पुराने MRN भी मान्य हैं)',
@@ -163,7 +164,7 @@ const hindi: Record<string, string> = {
   'Need help?': 'सहायता चाहिए?',
   'Privacy notice': 'गोपनीयता सूचना',
   'Booking & cancellation': 'बुकिंग और रद्दीकरण',
-  'Refund policy': 'धनवापसी नीति',
+  'Refund policy': 'रिफ़ंड नीति',
   'Our team': 'हमारी टीम',
   'Our specialties': 'हमारी विशेषज्ञ सेवाएँ',
   'Meet the team': 'हमारी टीम',
@@ -192,10 +193,10 @@ const hindi: Record<string, string> = {
   'My patients': 'मेरे रोगी',
   Patients: 'रोगी',
   Consultations: 'परामर्श',
-  Prescriptions: 'पर्चे',
-  'Clinical records & prescriptions': 'चिकित्सा रिकॉर्ड और पर्चे',
+  Prescriptions: 'प्रिस्क्रिप्शन',
+  'Clinical records & prescriptions': 'चिकित्सा रिकॉर्ड और प्रिस्क्रिप्शन',
   'Patient history search': 'रोगी इतिहास खोजें',
-  'Prescription register': 'पर्चा रजिस्टर',
+  'Prescription register': 'प्रिस्क्रिप्शन रजिस्टर',
   'Cancellation policy': 'रद्दीकरण नीति',
   'OPD tokens': 'ओपीडी टोकन',
   'OPD queue': 'ओपीडी कतार',
@@ -289,8 +290,8 @@ const hindi: Record<string, string> = {
   'Patient records & preferences': 'रोगी रिकॉर्ड और प्राथमिकताएँ',
   'My health records': 'मेरे स्वास्थ्य रिकॉर्ड',
   'My profile': 'मेरी प्रोफ़ाइल',
-  'Released prescriptions': 'जारी किए गए पर्चे',
-  'View prescription': 'पर्चा देखें',
+  'Released prescriptions': 'जारी किए गए प्रिस्क्रिप्शन',
+  'View prescription': 'प्रिस्क्रिप्शन देखें',
   Invoices: 'बिल',
   'Communication preferences': 'संचार प्राथमिकताएँ',
   'View appointments': 'अपॉइंटमेंट देखें',
@@ -313,8 +314,8 @@ const hindi: Record<string, string> = {
   'Checked in': 'उपस्थिति दर्ज',
   Unpaid: 'भुगतान बाकी',
   Paid: 'भुगतान हुआ',
-  Refunded: 'धनवापसी हुई',
-  'Partially refunded': 'आंशिक धनवापसी',
+  Refunded: 'रिफ़ंड हो गया',
+  'Partially refunded': 'आंशिक रिफ़ंड',
   Held: 'आरक्षित',
   Expired: 'समय समाप्त',
   Pending: 'लंबित',
@@ -334,6 +335,8 @@ const hindi: Record<string, string> = {
   'Book another demo visit': 'एक और डेमो बुकिंग करें',
   'Select a date to see sample time slots.': 'समय स्लॉट देखने के लिए तारीख चुनें।',
 };
+// Website and booking phrases above; portal workspace phrases live in ./hi.ts.
+const hindi: Record<string, string> = { ...hindiBase, ...hindiPortal };
 const eventName = 'hms-language-change';
 let volatileLanguage: Language | null = null;
 function readLanguage(): Language {
@@ -399,6 +402,72 @@ export function changeLanguage(language: Language) {
 }
 export function translate(en: string, language: Language) {
   return language === 'hi' ? hindi[en] || en : en;
+}
+/** Translator for attributes and other plain-string places (placeholders, options, aria-labels). */
+export function useT() {
+  const language = useLanguage();
+  return (en: string) => translate(en, language);
+}
+/**
+ * Sentence with values inside, e.g. <T en="Proposed by {0} on {1}" values={[name, date]} />.
+ * The whole sentence is translated as one unit so Hindi can reorder the placeholders.
+ */
+export function T({ en, values = [] }: { en: string; values?: React.ReactNode[] }) {
+  const language = useLanguage();
+  const template = language === 'hi' ? hindi[en] || en : en;
+  const parts = template.split(/\{(\d+)\}/);
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <Fragment key={i}>{values[Number(part)]}</Fragment>
+        ) : part ? (
+          <Fragment key={i}>{part}</Fragment>
+        ) : null,
+      )}
+    </>
+  );
+}
+/** Date and time in the hospital time zone, in the selected language (digits stay Latin). */
+export function When({
+  iso,
+  dateOnly = false,
+  format,
+}: {
+  iso: string | null | undefined;
+  dateOnly?: boolean;
+  /** Custom fields, e.g. { weekday: 'short' }; replaces the default date/time style. */
+  format?: Intl.DateTimeFormatOptions;
+}) {
+  const language = useLanguage();
+  if (!iso) return null;
+  return (
+    <>
+      {new Intl.DateTimeFormat(language === 'hi' ? 'hi-IN' : 'en-IN', {
+        timeZone: 'Asia/Kolkata',
+        ...(format || { dateStyle: 'medium', ...(dateOnly ? {} : { timeStyle: 'short' }) }),
+      }).format(new Date(iso))}
+    </>
+  );
+}
+/**
+ * Element with a translated aria-label, for server components that cannot call useT().
+ * Values (names, identifiers) are inserted into {0}, {1}… untranslated.
+ */
+export function Aria({
+  as: Tag = 'span',
+  label,
+  values = [],
+  ...rest
+}: {
+  as?: React.ElementType;
+  label: string;
+  values?: (string | number)[];
+  children?: React.ReactNode;
+} & Record<string, unknown>) {
+  const language = useLanguage();
+  const text = values.reduce<string>((t, v, i) => t.replace(`{${i}}`, String(v)), translate(label, language));
+  return <Tag {...rest} aria-label={text} />;
 }
 export function L({ en, hi }: { en: string; hi?: string }) {
   const lang = useLanguage();
