@@ -23,7 +23,7 @@ SELECT pg_advisory_lock_shared(777); SELECT pg_advisory_unlock_shared(777);
 BEGIN;
 SELECT hms_test.claims('$user', 'aal1');
 SET LOCAL ROLE authenticated;
-SELECT public.hms_v4_book_self('test-hospital','MAIN','$slot','Race Patient $n','hospital',gen_random_uuid(),'v1',true,50000,2);
+SELECT public.hms_v7_book_self('test-hospital','MAIN','$slot','Race Patient $n','hospital',gen_random_uuid(),'v1',true,50000,2, DATE '1980-05-05');
 COMMIT;
 SQL
     ) &

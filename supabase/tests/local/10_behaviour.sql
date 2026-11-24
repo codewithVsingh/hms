@@ -57,7 +57,7 @@ SELECT hms_test.put('admin_member', m.id::text) FROM hms.memberships m WHERE m.u
 -- ---------------------------------------------------------------- T1 anonymous caller
 BEGIN;
 SET LOCAL ROLE anon;
-SELECT hms_test.expect_error($$SELECT public.hms_v4_book_self('test-hospital','MAIN',gen_random_uuid(),'X Y','hospital',gen_random_uuid(),'v1',true,0,1)$$, 'permission denied%');
+SELECT hms_test.expect_error($$SELECT public.hms_v7_book_self('test-hospital','MAIN',gen_random_uuid(),'X Y','hospital',gen_random_uuid(),'v1',true,0,1, DATE '1980-05-05')$$, 'permission denied%');
 SELECT hms_test.expect_error($$SELECT count(*) FROM hms.appointments$$, 'permission denied%');
 SELECT hms_test.expect_error($$SELECT public.hms_staff_context('test-hospital','MAIN')$$, 'permission denied%');
 SELECT hms_test.ok(public.hms_v4_policy('test-hospital','MAIN') IS NOT NULL, 'anon can read public cancellation policy');
@@ -108,17 +108,17 @@ SELECT hms_test.put('req1', gen_random_uuid()::text);
 BEGIN;
 SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000c', 'aal1');
 SET LOCAL ROLE authenticated;
-SELECT hms_test.expect_error(format('SELECT public.hms_v4_book_self(%L,%L,%L,%L,%L,gen_random_uuid(),%L,true,50000,2)', 'test-hospital','MAIN', hms_test.get('held_slot'), 'Unverified User', 'online', 'v1'), 'PHONE_VERIFICATION_REQUIRED');
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_book_self(%L,%L,%L,%L,%L,gen_random_uuid(),%L,true,50000,2,''1980-05-05'')', 'test-hospital','MAIN', hms_test.get('held_slot'), 'Unverified User', 'online', 'v1'), 'PHONE_VERIFICATION_REQUIRED');
 COMMIT;
 BEGIN;
 SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000a', 'aal1');
 SET LOCAL ROLE authenticated;
 -- Stale policy version and tampered fee are rejected by the server.
-SELECT hms_test.expect_error(format('SELECT public.hms_v4_book_self(%L,%L,%L,%L,%L,gen_random_uuid(),%L,true,50000,1)', 'test-hospital','MAIN', hms_test.get('held_slot'), 'Patient Alpha', 'online', 'v1'), 'POLICY_CHANGED');
-SELECT hms_test.expect_error(format('SELECT public.hms_v4_book_self(%L,%L,%L,%L,%L,gen_random_uuid(),%L,true,100,2)', 'test-hospital','MAIN', hms_test.get('held_slot'), 'Patient Alpha', 'online', 'v1'), 'FEE_CHANGED');
-SELECT hms_test.put('held_appt', (public.hms_v4_book_self('test-hospital','MAIN', hms_test.get('held_slot')::uuid, 'Patient Alpha', 'online', hms_test.get('req1')::uuid, 'v1', true, 50000, 2)->>'id'));
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_book_self(%L,%L,%L,%L,%L,gen_random_uuid(),%L,true,50000,1,''1980-05-05'')', 'test-hospital','MAIN', hms_test.get('held_slot'), 'Patient Alpha', 'online', 'v1'), 'POLICY_CHANGED');
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_book_self(%L,%L,%L,%L,%L,gen_random_uuid(),%L,true,100,2,''1980-05-05'')', 'test-hospital','MAIN', hms_test.get('held_slot'), 'Patient Alpha', 'online', 'v1'), 'FEE_CHANGED');
+SELECT hms_test.put('held_appt', (public.hms_v7_book_self('test-hospital','MAIN', hms_test.get('held_slot')::uuid, 'Patient Alpha', 'online', hms_test.get('req1')::uuid, 'v1', true, 50000, 2, DATE '1980-05-05')->>'id'));
 -- Retrying the same request (double click / network retry) returns the same booking.
-SELECT hms_test.ok(public.hms_v4_book_self('test-hospital','MAIN', hms_test.get('held_slot')::uuid, 'Patient Alpha', 'online', hms_test.get('req1')::uuid, 'v1', true, 50000, 2)->>'id' = hms_test.get('held_appt'), 'idempotent retry returns same booking');
+SELECT hms_test.ok(public.hms_v7_book_self('test-hospital','MAIN', hms_test.get('held_slot')::uuid, 'Patient Alpha', 'online', hms_test.get('req1')::uuid, 'v1', true, 50000, 2, DATE '1980-05-05')->>'id' = hms_test.get('held_appt'), 'idempotent retry returns same booking');
 COMMIT;
 DO $$ BEGIN
   PERFORM hms_test.ok((SELECT count(*) FROM hms.appointments WHERE slot_id = hms_test.get('held_slot')::uuid) = 1, 'exactly one appointment after retry');
@@ -129,7 +129,7 @@ END $$;
 BEGIN;
 SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000b', 'aal1');
 SET LOCAL ROLE authenticated;
-SELECT hms_test.expect_error(format('SELECT public.hms_v4_book_self(%L,%L,%L,%L,%L,gen_random_uuid(),%L,true,50000,2)', 'test-hospital','MAIN', hms_test.get('held_slot'), 'Patient Beta', 'online', 'v1'), 'SLOT_UNAVAILABLE');
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_book_self(%L,%L,%L,%L,%L,gen_random_uuid(),%L,true,50000,2,''1980-05-05'')', 'test-hospital','MAIN', hms_test.get('held_slot'), 'Patient Beta', 'online', 'v1'), 'SLOT_UNAVAILABLE');
 COMMIT;
 \echo 'ok T3 phone verification, policy/fee tamper rejection, idempotent retry, held slot not double-booked'
 
@@ -137,10 +137,10 @@ COMMIT;
 BEGIN;
 SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000a', 'aal1');
 SET LOCAL ROLE authenticated;
-SELECT hms_test.put('far_appt', (public.hms_v4_book_self('test-hospital','MAIN', hms_test.get('far_slot')::uuid, 'Patient Alpha', 'online', gen_random_uuid(), 'v1', true, 50000, 2)->>'id'));
-SELECT hms_test.put('near_appt', (public.hms_v4_book_self('test-hospital','MAIN', hms_test.get('near_slot')::uuid, 'Patient Alpha', 'online', gen_random_uuid(), 'v1', true, 50000, 2)->>'id'));
+SELECT hms_test.put('far_appt', (public.hms_v7_book_self('test-hospital','MAIN', hms_test.get('far_slot')::uuid, 'Patient Alpha', 'online', gen_random_uuid(), 'v1', true, 50000, 2, DATE '1980-05-05')->>'id'));
+SELECT hms_test.put('near_appt', (public.hms_v7_book_self('test-hospital','MAIN', hms_test.get('near_slot')::uuid, 'Patient Alpha', 'online', gen_random_uuid(), 'v1', true, 50000, 2, DATE '1980-05-05')->>'id'));
 -- Fourth active future booking for the same account is refused.
-SELECT hms_test.expect_error(format('SELECT public.hms_v4_book_self(%L,%L,%L,%L,%L,gen_random_uuid(),%L,true,50000,2)', 'test-hospital','MAIN', hms_test.get('limit_slot'), 'Patient Alpha', 'online', 'v1'), 'BOOKING_LIMIT');
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_book_self(%L,%L,%L,%L,%L,gen_random_uuid(),%L,true,50000,2,''1980-05-05'')', 'test-hospital','MAIN', hms_test.get('limit_slot'), 'Patient Alpha', 'online', 'v1'), 'BOOKING_LIMIT');
 -- Browser roles cannot call the payment RPCs.
 SELECT hms_test.expect_error(format('SELECT public.hms_capture_payment(%L,%L,50000,%L,NULL,NULL)', 'order_X', 'pay_X', 'INR'), 'permission denied%');
 COMMIT;
@@ -226,7 +226,7 @@ END $$;
 BEGIN;
 SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000b', 'aal1');
 SET LOCAL ROLE authenticated;
-SELECT hms_test.ok(public.hms_v4_book_self('test-hospital','MAIN', hms_test.get('near_slot')::uuid, 'Patient Beta', 'hospital', gen_random_uuid(), 'v1', true, 50000, 2)->>'status' = 'confirmed', 'cancelled slot is released for rebooking');
+SELECT hms_test.ok(public.hms_v7_book_self('test-hospital','MAIN', hms_test.get('near_slot')::uuid, 'Patient Beta', 'hospital', gen_random_uuid(), 'v1', true, 50000, 2, DATE '1980-05-05')->>'status' = 'confirmed', 'cancelled slot is released for rebooking');
 COMMIT;
 \echo 'ok T6 cancellation deduction/refund computed server-side, tampered amounts rejected, idempotent, slot released'
 
@@ -356,7 +356,7 @@ COMMIT;
 BEGIN; -- the leave blocks new bookings immediately
 SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000b', 'aal1');
 SET LOCAL ROLE authenticated;
-SELECT hms_test.expect_error(format('SELECT public.hms_v4_book_self(%L,%L,%L,%L,%L,gen_random_uuid(),%L,true,50000,2)', 'test-hospital','MAIN', hms_test.get('free_in_window'), 'Patient Beta', 'hospital', 'v1'), 'SLOT_UNAVAILABLE');
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_book_self(%L,%L,%L,%L,%L,gen_random_uuid(),%L,true,50000,2,''1980-05-05'')', 'test-hospital','MAIN', hms_test.get('free_in_window'), 'Patient Beta', 'hospital', 'v1'), 'SLOT_UNAVAILABLE');
 SELECT hms_test.expect_error(format('SELECT public.hms_v5_affected_bookings(%L,%L)', hms_test.get('org'), hms_test.get('branch')), 'FORBIDDEN');
 SELECT hms_test.expect_error(format('SELECT public.hms_v5_hospital_cancel(%L,%L)', hms_test.get('far_appt'), 'doctor_unavailable'), 'FORBIDDEN');
 COMMIT;
@@ -452,7 +452,7 @@ SELECT hms_test.put('rx_slot', s.id::text) FROM hms.appointment_slots s
 BEGIN;
 SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000a', 'aal1');
 SET LOCAL ROLE authenticated;
-SELECT hms_test.put('rx_appt', public.hms_v4_book_self('test-hospital','MAIN', hms_test.get('rx_slot')::uuid, 'Patient Alpha', 'hospital', gen_random_uuid(), 'v1', true, 50000, 2)->>'id');
+SELECT hms_test.put('rx_appt', public.hms_v7_book_self('test-hospital','MAIN', hms_test.get('rx_slot')::uuid, 'Patient Alpha', 'hospital', gen_random_uuid(), 'v1', true, 50000, 2, DATE '1980-05-05')->>'id');
 COMMIT;
 BEGIN;
 SELECT hms_test.claims('a0000000-0000-4000-8000-000000000003', 'aal2');
@@ -598,3 +598,183 @@ DO $$ BEGIN
     'prescription.withdraw.rejected', 'prescription.withdraw.approved', 'prescription.paper.recalled', 'prescription.history.read')) = 7, 'every correction step audited');
 END $$;
 \echo 'ok T14 prescription corrections: issuer-only amend in 72h window, versions kept, patient sees current only, paper recall, two-person withdrawal, history, notifications, audit'
+
+-- ---------------------------------------------------------------- T15 duplicate patients and merge (migration 023)
+INSERT INTO auth.users (id, phone, phone_confirmed_at) VALUES ('a0000000-0000-4000-8000-00000000000e', '+919800000001', now());
+SELECT hms_test.put('t15_slot', s.id::text) FROM hms.appointment_slots s
+  WHERE s.doctor_id = hms_test.get('doctor')::uuid AND s.starts_at > now() + interval '8 days 1 hour' AND s.starts_at < now() + interval '9 days'
+    AND NOT EXISTS (SELECT 1 FROM hms.appointments a WHERE a.slot_id = s.id) ORDER BY s.starts_at LIMIT 1;
+BEGIN; -- reception registers a walk-in, then checks look-alikes
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000003', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.put('walkin', public.hms_v7_register(hms_test.get('org')::uuid, hms_test.get('branch')::uuid, 'Smt. Sunitha Sharma', DATE '1975-03-04', '+919800000001', 'female', 'v1', NULL)::text);
+DO $$
+DECLARE o uuid := hms_test.get('org')::uuid; b uuid := hms_test.get('branch')::uuid; r jsonb;
+BEGIN
+  r := public.hms_v7_duplicate_check(o, b, 'Sunita Sharma', DATE '1975-03-04', '+91 98000 00001', NULL);
+  PERFORM hms_test.ok(jsonb_array_length(r) = 1 AND r->0->>'level' = 'likely' AND r->0->>'phoneLast4' = '0001', 'same mobile + similar name + same DOB = likely: ' || r::text);
+  PERFORM hms_test.ok(NOT (r->0 ? 'phone'), 'full mobile number is not shown, only the last 4 digits');
+  PERFORM hms_test.ok(jsonb_array_length(public.hms_v7_duplicate_check(o, b, 'Aarav Sharma', DATE '2015-06-01', '+919800000001', NULL)) = 0, 'shared mobile alone is not a match (family member)');
+  PERFORM hms_test.ok(public.hms_v7_duplicate_check(o, b, 'Sunita Sharma', NULL, '+919800000001', NULL)->0->>'level' = 'possible', 'same mobile + similar name, no DOB = possible');
+  PERFORM hms_test.ok(public.hms_v7_duplicate_check(o, b, 'Sunita Sharma', DATE '1975-04-03', '+919800000001', NULL)->0->>'level' = 'possible', 'day/month swapped DOB = possible');
+  PERFORM hms_test.ok(public.hms_v7_duplicate_check(o, b, 'Sharma Sunita', DATE '1975-03-04', '+919811111111', NULL)->0->>'level' = 'possible', 'similar name (any word order) + same DOB, different mobile = possible');
+  PERFORM hms_test.ok(jsonb_array_length(public.hms_v7_duplicate_check(o, b, 'Sunita Sharma', DATE '1980-01-01', '+919800000001', NULL)) = 0, 'different known DOB = not a match');
+  PERFORM hms_test.ok(jsonb_array_length(public.hms_v7_duplicate_check(o, b, 'Sunita Sharma', DATE '1975-03-04', '+919800000001', 'male')) = 0, 'different gender = not a match');
+  -- Registration is refused while look-alikes exist, unless a reason is given.
+  PERFORM hms_test.expect_error(format('SELECT public.hms_v7_register(%L,%L,%L,%L::date,%L,NULL,%L,NULL)', o, b, 'Sunita Sharma', '1975-03-04', '+919800000001', 'v1'), 'POSSIBLE_DUPLICATE');
+  PERFORM hms_test.ok(public.hms_v7_register(o, b, 'Aarav Sharma', DATE '2015-06-01', '+919800000001', 'male', 'v1', NULL) IS NOT NULL, 'child on the same mobile registers without a warning');
+  PERFORM public.hms_v7_register(o, b, 'Ramesh Kumar', DATE '1960-01-01', '+919822222222', 'male', 'v1', NULL);
+  PERFORM hms_test.expect_error(format('SELECT public.hms_v7_register(%L,%L,%L,NULL,%L,NULL,%L,%L)', o, b, 'Kumar Ramesh', '+919822222222', 'v1', 'no'), 'INVALID_REQUEST');
+  PERFORM hms_test.ok(public.hms_v7_register(o, b, 'Kumar Ramesh', NULL, '+919822222222', 'male', 'v1', 'Father and son share name and phone') IS NOT NULL, 'register anyway with a reason');
+END $$;
+-- The old registration function is closed to browsers.
+SELECT hms_test.expect_error(format('SELECT public.hms_staff_register(%L,%L,%L,NULL,NULL,%L)', hms_test.get('org'), hms_test.get('branch'), 'Bypass Test', 'v1'), 'permission denied%');
+COMMIT;
+DO $$ BEGIN
+  PERFORM hms_test.ok(EXISTS (SELECT 1 FROM hms.patient_duplicate_flags WHERE source = 'registration' AND status = 'dismissed' AND resolution_note = 'Father and son share name and phone'), 'override reason recorded');
+  PERFORM hms_test.ok((SELECT mrn FROM hms.patients WHERE id = hms_test.get('walkin')::uuid) ~ '^PT-\d{6,}$', 'walk-in gets a UHID');
+END $$;
+BEGIN; -- online booking: date of birth required, adult only, new record flagged silently
+SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000e', 'aal1');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.expect_error(format('SELECT public.hms_v4_book_self(%L,%L,%L,%L,%L,gen_random_uuid(),%L,true,50000,2)', 'test-hospital','MAIN', hms_test.get('t15_slot'), 'Sunita Sharma', 'hospital', 'v1'), 'permission denied%');
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_book_self(%L,%L,%L,%L,%L,gen_random_uuid(),%L,true,50000,2,NULL)', 'test-hospital','MAIN', hms_test.get('t15_slot'), 'Sunita Sharma', 'hospital', 'v1'), 'INVALID_REQUEST');
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_book_self(%L,%L,%L,%L,%L,gen_random_uuid(),%L,true,50000,2,%L::date)', 'test-hospital','MAIN', hms_test.get('t15_slot'), 'Sunita Sharma', 'hospital', 'v1', current_date - 3650), 'ADULT_REQUIRED');
+SELECT hms_test.put('online_appt', public.hms_v7_book_self('test-hospital','MAIN', hms_test.get('t15_slot')::uuid, 'Sunita Sharma', 'hospital', gen_random_uuid(), 'v1', true, 50000, 2, DATE '1975-03-04')->>'id');
+COMMIT;
+SELECT hms_test.put('online_pat', patient_id::text) FROM hms.appointments WHERE id = hms_test.get('online_appt')::uuid;
+SELECT hms_test.put('online_mrn', mrn) FROM hms.patients WHERE id = hms_test.get('online_pat')::uuid;
+SELECT hms_test.put('walkin_mrn', mrn) FROM hms.patients WHERE id = hms_test.get('walkin')::uuid;
+DO $$ BEGIN
+  PERFORM hms_test.ok((SELECT birth_date FROM hms.patients WHERE id = hms_test.get('online_pat')::uuid) = DATE '1975-03-04', 'DOB stored from online booking');
+  PERFORM hms_test.ok(EXISTS (SELECT 1 FROM hms.patient_duplicate_flags WHERE patient_id = hms_test.get('online_pat')::uuid AND candidate_id = hms_test.get('walkin')::uuid
+    AND level = 'likely' AND source = 'online_booking' AND status = 'open'), 'new online record flagged against the walk-in');
+END $$;
+BEGIN; -- the visit gets an encounter, to prove clinical records move with the merge
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000003', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT public.hms_change_status(hms_test.get('online_appt')::uuid, 'checked_in');
+COMMIT;
+BEGIN;
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000002', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT public.hms_change_status(hms_test.get('online_appt')::uuid, 'in_consultation');
+SELECT hms_test.put('t15_rx', public.hms_v3_issue_rx(hms_test.get('online_appt')::uuid,
+  '[{"medicine":"Cetirizine 10 mg","dose":"1 tablet","frequency":"Once daily","duration":"5 days","instructions":""}]'::jsonb, NULL, true, true)->>'id');
+-- Doctors cannot see the duplicates queue or propose merges.
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_duplicates(%L,%L)', hms_test.get('org'), hms_test.get('branch')), 'FORBIDDEN');
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_merge_propose(%L,%L,%L,%L,NULL)', hms_test.get('org'), hms_test.get('branch'), hms_test.get('online_pat'), hms_test.get('walkin')), 'FORBIDDEN');
+COMMIT;
+BEGIN; -- the patient cannot see the queue
+SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000e', 'aal1');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_duplicates(%L,%L)', hms_test.get('org'), hms_test.get('branch')), 'FORBIDDEN');
+COMMIT;
+SELECT hms_test.put('alpha_pat', patient_id::text) FROM hms.patient_owners WHERE user_id = 'a0000000-0000-4000-8000-00000000000a';
+SELECT hms_test.put('beta_pat', patient_id::text) FROM hms.patient_owners WHERE user_id = 'a0000000-0000-4000-8000-00000000000b';
+SELECT hms_test.put('ramesh1', id::text) FROM hms.patients WHERE full_name = 'Ramesh Kumar';
+SELECT hms_test.put('ramesh2', id::text) FROM hms.patients WHERE full_name = 'Kumar Ramesh';
+BEGIN; -- reception reviews and proposes; the first-registered UHID survives
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000003', 'aal2');
+SET LOCAL ROLE authenticated;
+DO $$
+DECLARE o uuid := hms_test.get('org')::uuid; b uuid := hms_test.get('branch')::uuid; q jsonb; p jsonb;
+BEGIN
+  q := public.hms_v7_duplicates(o, b);
+  PERFORM hms_test.ok(EXISTS (SELECT 1 FROM jsonb_array_elements(q) e WHERE e->'patient'->>'id' = hms_test.get('online_pat') AND e->>'level' = 'likely'), 'queue shows the online flag');
+  PERFORM hms_test.expect_error(format('SELECT public.hms_v7_merge_propose(%L,%L,%L,%L,NULL)', o, b,
+    hms_test.get('alpha_pat'), hms_test.get('beta_pat')), 'BOTH_HAVE_ACCOUNTS');
+  p := public.hms_v7_merge_propose(o, b, hms_test.get('online_pat')::uuid, hms_test.get('walkin')::uuid, 'Same person: walk-in, then booked online');
+  PERFORM hms_test.ok(p->'survivor'->>'mrn' = hms_test.get('walkin_mrn'), 'older (walk-in) UHID survives');
+  PERFORM hms_test.put('merge1', p->>'mergeId');
+  PERFORM hms_test.expect_error(format('SELECT public.hms_v7_merge_propose(%L,%L,%L,%L,NULL)', o, b, hms_test.get('walkin'), hms_test.get('online_pat')), 'MERGE_PENDING');
+  PERFORM hms_test.expect_error(format('SELECT public.hms_v7_merge_decide(%L,true,%L,NULL,NULL)', hms_test.get('merge1'), 'aadhaar'), 'FORBIDDEN');
+END $$;
+COMMIT;
+BEGIN; -- the administrator: ID check required, rejection needs a reason, then approves
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000001', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_merge_decide(%L,true,NULL,NULL,NULL)', hms_test.get('merge1')), 'ID_CHECK_REQUIRED');
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_merge_decide(%L,false,NULL,NULL,NULL)', hms_test.get('merge1')), 'INVALID_REQUEST');
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_merge_decide(%L,true,%L,%L::jsonb,NULL)', hms_test.get('merge1'), 'aadhaar', '{"name":"other"}'), 'INVALID_REQUEST');
+SELECT hms_test.ok((SELECT jsonb_array_length(x->'pending') = 1 AND NOT (x->'pending'->0->>'mine')::boolean FROM (SELECT public.hms_v7_merges(hms_test.get('org')::uuid, hms_test.get('branch')::uuid) x) z), 'admin sees the pending proposal');
+SELECT hms_test.ok(public.hms_v7_merge_decide(hms_test.get('merge1')::uuid, true, 'aadhaar', '{"name":"merged"}'::jsonb, 'Aadhaar seen at desk')->>'aliasMrn' = hms_test.get('online_mrn'), 'merge approved; online UHID becomes an alias');
+COMMIT;
+DO $$ BEGIN
+  PERFORM hms_test.ok((SELECT merged_into FROM hms.patients WHERE id = hms_test.get('online_pat')::uuid) = hms_test.get('walkin')::uuid, 'merged record points to the survivor');
+  PERFORM hms_test.ok((SELECT patient_id FROM hms.appointments WHERE id = hms_test.get('online_appt')::uuid) = hms_test.get('walkin')::uuid, 'appointment moved');
+  PERFORM hms_test.ok((SELECT patient_id FROM hms.encounters WHERE appointment_id = hms_test.get('online_appt')::uuid) = hms_test.get('walkin')::uuid, 'encounter followed the appointment');
+  PERFORM hms_test.ok((SELECT e.patient_id FROM hms.prescriptions r JOIN hms.encounters e ON e.id = r.encounter_id WHERE r.id = hms_test.get('t15_rx')::uuid) = hms_test.get('walkin')::uuid, 'prescription is now in the surviving record');
+  PERFORM hms_test.ok((SELECT patient_mrn_snapshot FROM hms.prescriptions WHERE id = hms_test.get('t15_rx')::uuid) = hms_test.get('online_mrn'), 'prescription keeps the UHID it was issued under');
+  PERFORM hms_test.ok((SELECT patient_id FROM hms.patient_owners WHERE user_id = 'a0000000-0000-4000-8000-00000000000e') = hms_test.get('walkin')::uuid, 'online account now opens the surviving record');
+  PERFORM hms_test.ok((SELECT full_name FROM hms.patients WHERE id = hms_test.get('walkin')::uuid) = 'Sunita Sharma', 'approver''s name choice applied');
+  PERFORM hms_test.ok((SELECT status FROM hms.patient_duplicate_flags WHERE patient_id = hms_test.get('online_pat')::uuid AND candidate_id = hms_test.get('walkin')::uuid) = 'merged', 'flag resolved as merged');
+  PERFORM hms_test.ok((SELECT id_check_type FROM hms.patient_merges WHERE id = hms_test.get('merge1')::uuid) = 'aadhaar', 'ID document type recorded (no number)');
+END $$;
+BEGIN; -- old UHID still finds the patient; merged record no longer listed separately
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000003', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.ok((SELECT jsonb_array_length(r) = 1 AND r->0->>'mrn' = hms_test.get('walkin_mrn') FROM (SELECT public.hms_staff_patients(hms_test.get('org')::uuid, hms_test.get('branch')::uuid, hms_test.get('online_mrn')) r) z), 'old UHID finds the surviving patient');
+SELECT hms_test.ok((SELECT count(*) = 1 FROM jsonb_array_elements(public.hms_staff_patients(hms_test.get('org')::uuid, hms_test.get('branch')::uuid, 'sunita')) e), 'only one Sunita listed after merge');
+COMMIT;
+BEGIN; -- the doctor's timeline opened with the old UHID resolves to the surviving record
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000002', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.ok((SELECT t->>'mrn' = hms_test.get('walkin_mrn') AND t->'formerUhids' ? hms_test.get('online_mrn')
+  FROM (SELECT public.hms_v4_patient_timeline(hms_test.get('org')::uuid, hms_test.get('branch')::uuid, hms_test.get('online_mrn'), 0) t) z), 'timeline via old UHID shows the merged record and former UHIDs');
+COMMIT;
+BEGIN; -- the online patient now sees the surviving UHID
+SELECT hms_test.claims('a0000000-0000-4000-8000-00000000000e', 'aal1');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.ok(public.hms_v3_patient_records('test-hospital')->'profile'->>'mrn' = hms_test.get('walkin_mrn'), 'patient portal shows the surviving UHID');
+COMMIT;
+BEGIN; -- undo (no time limit by default): reason required, everything moves back
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000001', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_merge_undo(%L,NULL)', hms_test.get('merge1')), 'INVALID_REQUEST');
+SELECT hms_test.ok(public.hms_v7_merge_undo(hms_test.get('merge1')::uuid, 'Wrong merge: twin sisters')->>'status' = 'undone', 'merge undone');
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_merge_undo(%L,%L)', hms_test.get('merge1'), 'again please'), 'INVALID_STATUS');
+COMMIT;
+DO $$ BEGIN
+  PERFORM hms_test.ok((SELECT merged_into IS NULL FROM hms.patients WHERE id = hms_test.get('online_pat')::uuid), 'record restored');
+  PERFORM hms_test.ok((SELECT patient_id FROM hms.appointments WHERE id = hms_test.get('online_appt')::uuid) = hms_test.get('online_pat')::uuid, 'appointment moved back');
+  PERFORM hms_test.ok((SELECT patient_id FROM hms.encounters WHERE appointment_id = hms_test.get('online_appt')::uuid) = hms_test.get('online_pat')::uuid, 'encounter moved back');
+  PERFORM hms_test.ok((SELECT patient_id FROM hms.patient_owners WHERE user_id = 'a0000000-0000-4000-8000-00000000000e') = hms_test.get('online_pat')::uuid, 'online account moved back');
+  PERFORM hms_test.ok((SELECT full_name FROM hms.patients WHERE id = hms_test.get('walkin')::uuid) = 'Smt. Sunitha Sharma', 'survivor details restored');
+  PERFORM hms_test.ok(NOT EXISTS (SELECT 1 FROM hms.patient_uhid_aliases WHERE merge_id = hms_test.get('merge1')::uuid), 'alias removed');
+END $$;
+-- When the hospital later sets an undo window, older merges can no longer be undone.
+BEGIN;
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000003', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.put('merge2', public.hms_v7_merge_propose(hms_test.get('org')::uuid, hms_test.get('branch')::uuid, hms_test.get('online_pat')::uuid, hms_test.get('walkin')::uuid, NULL)->>'mergeId');
+COMMIT;
+BEGIN;
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000001', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT public.hms_v7_merge_decide(hms_test.get('merge2')::uuid, true, 'passport', NULL, NULL);
+COMMIT;
+UPDATE hms.hospital_settings SET merge_undo_days = 30 WHERE organization_id = hms_test.get('org')::uuid;
+UPDATE hms.patient_merges SET decided_at = now() - interval '31 days' WHERE id = hms_test.get('merge2')::uuid;
+BEGIN;
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000001', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.ok(NOT (public.hms_v7_merges(hms_test.get('org')::uuid, hms_test.get('branch')::uuid)->'recent'->0->>'canUndo')::boolean, 'list shows undo no longer available');
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_merge_undo(%L,%L)', hms_test.get('merge2'), 'too late now'), 'UNDO_WINDOW_CLOSED');
+COMMIT;
+UPDATE hms.hospital_settings SET merge_undo_days = NULL WHERE organization_id = hms_test.get('org')::uuid;
+-- Proposer cannot approve their own proposal; proposer can cancel.
+BEGIN;
+SELECT hms_test.claims('a0000000-0000-4000-8000-000000000001', 'aal2');
+SET LOCAL ROLE authenticated;
+SELECT hms_test.put('merge3', public.hms_v7_merge_propose(hms_test.get('org')::uuid, hms_test.get('branch')::uuid,
+  hms_test.get('ramesh1')::uuid, hms_test.get('ramesh2')::uuid, NULL)->>'mergeId');
+SELECT hms_test.expect_error(format('SELECT public.hms_v7_merge_decide(%L,true,%L,NULL,NULL)', hms_test.get('merge3'), 'pan'), 'SECOND_PERSON_REQUIRED');
+SELECT hms_test.ok(public.hms_v7_merge_cancel(hms_test.get('merge3')::uuid)->>'status' = 'cancelled', 'proposer cancels');
+COMMIT;
+DO $$ BEGIN
+  PERFORM hms_test.ok((SELECT count(DISTINCT action) FROM hms.audit_logs WHERE action IN ('patient.duplicate_check', 'patient.register', 'patient.register.override',
+    'patient.duplicates.read', 'patient.merge.proposed', 'patient.merge.approved', 'patient.merge.undone', 'patient.merge.cancelled')) = 8, 'every step audited');
+  PERFORM hms_test.ok(NOT EXISTS (SELECT 1 FROM hms.audit_logs WHERE to_jsonb(audit_logs)::text ILIKE '%sunita%' OR to_jsonb(audit_logs)::text LIKE '%9800000001%'), 'no names or phone numbers in the audit log');
+END $$;
+\echo 'ok T15 duplicates: match levels, shared phone not a match, registration override with reason, DOB-required online booking flags silently, two-person merge with ID check, oldest UHID survives, alias lookup, records and account move, undo (unlimited, then window), audit'
