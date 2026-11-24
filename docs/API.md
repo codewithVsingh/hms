@@ -23,3 +23,8 @@ All portal endpoints use `/api/v1/`. GET public catalog/slots returns minimal pu
 | POST | staff/refunds/create, staff/refunds/check | Explicit admin approval and provider refund reconciliation |
 
 Private RPCs with server-only settlement permissions: `hms_claim_order`, `hms_attach_order`, `hms_lookup_order`, `hms_capture_payment`, `hms_apply_refund`. Public website RPCs: `hms_catalog`, `hms_available_slots`, `hms_public_content`. See migration files for exact argument types, grants and domain invariants. No automatic webhook refund handling is implemented.
+
+
+## Health check
+
+`GET /api/health` (portal). Without credentials it returns only `{"status":"ok"|"degraded"}` (HTTP 200/503) for uptime monitors. With `Authorization: Bearer <CRON_SECRET>` it adds the mode (demo/live), payment mode, which configuration groups are present (never values) and a database round trip. Responses are `no-store`.

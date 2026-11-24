@@ -25,8 +25,13 @@ Apply in a **new development Supabase project first**. Do not paste all scripts 
 | 0016_reconciliation_and_events | Read-only payment reconciliation and event notifications |
 | 0017_patient_numbers_and_history | Short references, doctor timeline, reception prescription register |
 | 0018_cancellation_policy | Policy versions, verified lookup, cancellation ledger and policy refunds |
+| 0019_random_references_and_audit_guard | Random unambiguous booking references, append-only audit log (file `202611250019_…`) |
 
-Actual filenames begin with `202611240001` through `202611240018`. For a fresh database apply all eighteen in order. Existing Phase 3 database: apply only 017–018. Existing Phase 2 database: 011–018; Phase 1: 006–018, provided previous migrations are unchanged. Use migration history and backups, not blind reapplication. Original 001–010 are preserved. New migrations have not been executed against PostgreSQL here.
+Actual filenames begin with `202611240001` through `202611240018`, then `202611250019`. For a fresh database apply all nineteen in order. Existing Phase 3 database: apply only 017–019. Existing Phase 2 database: 011–019; Phase 1: 006–019, provided previous migrations are unchanged. Use migration history and backups, not blind reapplication. Original 001–010 are preserved. Migration 012 contained a syntax error that made it impossible to apply; it was corrected in place (no database can have recorded it as applied) — if you attempted it before, simply apply it now and continue with 013+.
+
+## Automated database tests
+
+`tests/local/run.sh` creates a disposable PostgreSQL database, applies a Supabase role/schema shim and all migrations, runs the `verify_*.sql` scripts, behavioural security tests and a concurrent-booking race. CI runs it on every pull request. Never run it against a real Supabase project. See `../docs/DATABASE_ARCHITECTURE.md` and `../docs/TEST_REPORT.md`.
 
 1. Apply migrations using Supabase CLI (recommended) or SQL Editor one file at a time.
 2. Run `tests/verify_baseline.sql`, then `tests/verify_live.sql`, then `tests/verify_phase3.sql` and `tests/verify_phase4.sql`. These check privileges and key schema safeguards, not full functional/security certification.

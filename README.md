@@ -20,7 +20,7 @@ Website: `http://localhost:3000`. Portal: `http://localhost:3001/login`. Demo mo
 
 ## Database
 
-All SQL is included under `supabase/`. Fresh project: apply migrations 001-018 in filename order. Existing Phase 3 DB: only 017-018; Phase 2 DB: only 011-018, if originals unchanged. Run `supabase/tests/verify_baseline.sql`, `verify_live.sql`, `verify_phase3.sql`, and `verify_phase4.sql`. Configure initial data with `supabase/setup/01_provision_hospital.sql`. Keep private schema grants restricted. Do not apply optional seed to real hospital. Read `supabase/README.md`.
+All SQL is included under `supabase/`. Fresh project: apply migrations 001-019 in filename order. Existing Phase 3 DB: only 017-019; Phase 2 DB: only 011-019, if originals unchanged. Run `supabase/tests/verify_baseline.sql`, `verify_live.sql`, `verify_phase3.sql`, and `verify_phase4.sql`. Configure initial data with `supabase/setup/01_provision_hospital.sql`. Keep private schema grants restricted. Do not apply optional seed to real hospital. Read `supabase/README.md`.
 
 ## Structure
 
@@ -33,7 +33,7 @@ packages/types/       Shared contracts and demo data
 packages/validation/  Shared validation
 packages/config/      Shared config notes (placeholder; TS defaults in tsconfig.base.json)
 packages/database/    Database access layer notes (placeholder; SQL lives in supabase/)
-supabase/migrations/  18 ordered migrations (original 001-016 retained)
+supabase/migrations/  19 ordered migrations (original 001-016 retained)
 supabase/setup/       Initial provisioning template
 supabase/tests/       SQL verification scripts
 review/               Offline HTML and screenshots
@@ -52,6 +52,8 @@ pnpm build
 pnpm test:security
 pnpm exec playwright install chromium
 pnpm test
+# Database tests (disposable local PostgreSQL only)
+bash supabase/tests/local/run.sh
 ```
 
-Read `docs/PHASE4-HANDOVER.md` first for what Phase 4 adds (bilingual EN/Hindi UI, patient history, booking cancellation and refunds), its limitations and the staging checklist. `docs/PHASE3-HANDOVER.md` still covers the Phase 3 baseline: environment setup, API groups and earlier implemented/deferred items. Phase 2 documents are historical. Never connect real clinical records or live payments until verification is complete.
+Start with `docs/README.md` (documentation index) and `docs/PRODUCTION_READINESS.md`. Read `docs/PHASE4-HANDOVER.md` for what Phase 4 adds (bilingual EN/Hindi UI, patient history, booking cancellation and refunds), its limitations and the staging checklist. `docs/PHASE3-HANDOVER.md` still covers the Phase 3 baseline: environment setup, API groups and earlier implemented/deferred items. Phase 2 documents are historical. Never connect real clinical records or live payments until verification is complete.
