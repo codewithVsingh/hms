@@ -25,19 +25,21 @@ All SQL is included under `supabase/`. Fresh project: apply migrations 001-018 i
 ## Structure
 
 ```
-apps/website/        Public site, CMS published content, callback form
-apps/portal/         Auth, staff/doctor/admin/patient UI, booking, APIs, PWA
-packages/ui/        Shared visual components and styles
-packages/core/      Domain boundaries (some reserved placeholders)
-packages/types/     Shared contracts and demo data
-packages/validation/ Shared validation
-supabase/migrations/ 18 ordered migrations (original 001-016 retained)
-supabase/setup/     Initial provisioning template
-supabase/tests/     SQL verification scripts
-review/             Offline HTML and screenshots
-scripts/            Optional QA preview harness
- tests/             Security/static and Playwright tests
- docs/              Integration, architecture, API and QA notes
+apps/website/         Public site, CMS published content, callback form
+apps/portal/          Auth, staff/doctor/admin/patient UI, booking, APIs, PWA
+packages/ui/          Shared visual components and styles
+packages/core/        Domain boundaries (some reserved placeholders)
+packages/types/       Shared contracts and demo data
+packages/validation/  Shared validation
+packages/config/      Shared config notes (placeholder; TS defaults in tsconfig.base.json)
+packages/database/    Database access layer notes (placeholder; SQL lives in supabase/)
+supabase/migrations/  18 ordered migrations (original 001-016 retained)
+supabase/setup/       Initial provisioning template
+supabase/tests/       SQL verification scripts
+review/               Offline HTML and screenshots
+scripts/              Optional QA preview harness
+tests/                Security/static and Playwright tests
+docs/                 Integration, architecture, API and QA notes
 ```
 
 ## Verification
@@ -50,4 +52,4 @@ pnpm exec playwright install chromium
 pnpm test
 ```
 
-Read `docs/PHASE3-HANDOVER.md` first for the complete implemented/deferred list, environment setup, new API groups and staging acceptance checklist. Phase 2 documents are historical; Phase 3 handover supersedes earlier limitation and migration lists. Never connect real clinical records or live payments until verification is complete.
+Read `docs/PHASE4-HANDOVER.md` first for what Phase 4 adds (bilingual EN/Hindi UI, patient history, booking cancellation and refunds), its limitations and the staging checklist. `docs/PHASE3-HANDOVER.md` still covers the Phase 3 baseline: environment setup, API groups and earlier implemented/deferred items. Phase 2 documents are historical. Never connect real clinical records or live payments until verification is complete.
