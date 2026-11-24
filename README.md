@@ -45,6 +45,8 @@ docs/                 Integration, architecture, API and QA notes
 ## Verification
 
 ```sh
+pnpm format:check
+pnpm lint
 pnpm typecheck
 pnpm build
 pnpm test:security

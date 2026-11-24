@@ -31,7 +31,7 @@ const sql = (n) => readFileSync(`supabase/migrations/${n}`, 'utf8');
 // punctuation and trailing commas, so Prettier line-wrapping does not break the assertions.
 const code = (path) =>
   readFileSync(path, 'utf8')
-    .replace(/\s*([(){}\[\];,:=!<>+&|?.'"`])\s*/g, '$1')
+    .replace(/\s*([(){}[\];,:=!<>+&|?.'"`])\s*/g, '$1')
     .replace(/,([)\]}])/g, '$1')
     .replace(/\s+/g, ' ');
 test('static guard: payment and refund settlement service-only grants', () => {

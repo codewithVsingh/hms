@@ -1,5 +1,5 @@
 import { LiveLogin } from '../../features/live/login';
-import { Brand, Button, Icon, Notice } from '@hms/ui';
+import { Brand, Icon, Notice } from '@hms/ui';
 import { demoEnabled, websiteUrl } from '../../lib/config';
 const roles = [
   {

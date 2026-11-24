@@ -1,9 +1,9 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { Button, Field, Notice, Badge, Icon, L, translate, useLanguage } from '@hms/ui';
+import { Button, Field, Notice, Badge, L, translate, useLanguage } from '@hms/ui';
 import { v3, type CancellationPolicy } from './v3-client';
 import { v2 } from './v2-client';
-import { message, when, rupees, human } from './client';
+import { message, when, human } from './client';
 import { PolicyExplanation } from './manage-booking';
 const sampleMrn = 'PT-000127';
 type RxItem = {

@@ -304,12 +304,14 @@ export function LiveBooking({
       if (payment === 'online' && booking.status === 'held') await checkout(booking.id, refresh, setError);
     });
   }
-  const maxDate = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kolkata',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(Date.now() + 30 * 86400000));
+  const [maxDate] = useState(() =>
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date(Date.now() + 30 * 86400000)),
+  );
   return (
     <div className="booking-page">
       <header className="booking-header">

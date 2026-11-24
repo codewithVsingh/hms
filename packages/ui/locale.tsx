@@ -357,7 +357,9 @@ export function useLanguage() {
       const value = readLanguage();
       try {
         localStorage.setItem('hms-language', value);
-      } catch {}
+      } catch {
+        /* Storage unavailable (private mode or blocked); language falls back to default. */
+      }
       setLanguage(value);
       document.documentElement.lang = value === 'hi' ? 'hi-IN' : 'en-IN';
     };
@@ -375,7 +377,9 @@ export function changeLanguage(language: Language) {
   volatileLanguage = language;
   try {
     localStorage.setItem('hms-language', language);
-  } catch {}
+  } catch {
+    /* Storage unavailable (private mode or blocked); language falls back to default. */
+  }
   try {
     const url = new URL(window.location.href);
     if (url.searchParams.has('lang')) {
@@ -388,7 +392,9 @@ export function changeLanguage(language: Language) {
       url.hash = h.pathname + h.search;
       window.history.replaceState(null, '', url);
     }
-  } catch {}
+  } catch {
+    /* Malformed URL: leave the address unchanged. */
+  }
   window.dispatchEvent(new Event(eventName));
 }
 export function translate(en: string, language: Language) {
@@ -445,7 +451,9 @@ export function LanguageLink({
       url.searchParams.set('lang', language);
       target = href.startsWith('/') ? url.pathname + url.search + url.hash : url.toString();
     }
-  } catch {}
+  } catch {
+    /* Malformed link: keep the original href. */
+  }
   return (
     <a className={className} href={target}>
       {children}

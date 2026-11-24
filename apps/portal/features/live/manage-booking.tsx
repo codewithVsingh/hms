@@ -123,7 +123,7 @@ export function CancelBookingButton({
   }, [row.id]);
   useEffect(() => {
     if (row.status === 'cancelled' && !demo) void readQuote(false);
-  }, [row.id, row.status]);
+  }, [row.id, row.status, demo]);
   async function submit() {
     if (lock.current || !quote?.eligible) return;
     lock.current = true;

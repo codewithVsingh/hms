@@ -3,7 +3,7 @@ import { LivePage } from '../../components/live';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { doctors, services, articles } from '@hms/types';
-import { Button, Icon, Notice, SectionHeading, Badge, L } from '@hms/ui';
+import { Button, Icon, Notice, Badge, L } from '@hms/ui';
 import { DoctorsGrid, ServicesGrid, ArticlesGrid, DoctorPortrait, FAQ } from '../../components/catalog';
 import { portalUrl } from '../../lib/config';
 const policies: Record<string, { title: string; sections: [string, string][] }> = {
