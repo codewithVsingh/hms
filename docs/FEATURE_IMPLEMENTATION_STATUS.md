@@ -45,7 +45,7 @@ Key: **Done** = implemented end to end (UI → API → DB) · **Done (tested)** 
 | Feature | Status | Notes |
 |---|---|---|
 | UHID (`PT-…`) | Done | Sequential by design (HMS-030) |
-| Patient search (UHID, name, phone) | Done | Search by booking reference via appointments filter. Search not audited (HMS-019) |
+| Patient search (UHID, name, mobile, booking reference) | Done (tested) | Audited; T12 |
 | Doctor timeline by UHID | Done | Paginated; access-checked and audited |
 | Vitals, diagnoses, allergies, history | Done | Doctor only (HMS-021) |
 | Prescriptions: draft, issue with attestation, print | Done | |

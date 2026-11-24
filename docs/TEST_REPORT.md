@@ -13,9 +13,9 @@ Branch `feature/hms-audit-security-hardening`, run on 24–25 Nov 2026. Every re
 | Type check | `pnpm typecheck` | local + CI | Pass (2 apps) |
 | Production build | `pnpm build` | local + CI | Pass (website 29 static pages; portal) |
 | Browser E2E (demo mode) | `pnpm test` | local (system Chrome) + CI | 33/33 pass (11 tests × desktop, mobile, tablet) |
-| Database: fresh install | `supabase/tests/local/run.sh` | local PG 16.15 + CI `postgres:16` | Migrations 001–019 apply (012 failed before the fix) |
+| Database: fresh install | `supabase/tests/local/run.sh` | local PG 16.15 + CI `postgres:16` | Migrations 001–020 apply (012 failed before the fix) |
 | Database: verify scripts | same | local + CI | baseline, live, phase3, phase4 pass |
-| Database: behaviour T1–T9, T11 | same | local + CI | All pass |
+| Database: behaviour T1–T9, T11, T12 | same | local + CI | All pass |
 | Database: concurrency T10 | same | local + CI | 20 parallel bookings, 5 slots: 5 wins, 15 `SLOT_UNAVAILABLE`, max 1 per slot |
 | Secret scan | Gitleaks (full history) | CI | Pass |
 | Code scanning | CodeQL security-extended | CI | Pass |
@@ -37,6 +37,7 @@ Mutation checks proved the tests can fail: removing the `sameOrigin` CSRF guard 
 | T9 | Booking, cancellation and policy changes are audited |
 | T10 | Concurrent booking race (5) |
 | T11 | Random unambiguous references (2,000 generated, all distinct); audit log rejects UPDATE/DELETE/TRUNCATE |
+| T12 | Staff search by mobile (any format), booking reference and name; patients refused; each search audited without the search text |
 
 ## Not yet covered (needs staging or further work)
 

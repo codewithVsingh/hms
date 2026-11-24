@@ -14,7 +14,7 @@ This is an engineering review, not a certification. A penetration test against a
 | Payment integrity | Strong. Server amounts, replay-safe capture, mismatch rejection (T4). |
 | Refund integrity | Strong. Server-side quote, single claim, provider match, no partial→full escalation (T6, T7). |
 | Concurrency | One booking per slot under 20 parallel attempts (T10). |
-| Audit trail | Now append-only (T11). Patient search not yet audited (HMS-019). |
+| Audit trail | Now append-only (T11); patient searches audited without storing search text (T12). |
 | Booking references | Now random and non-sequential (T11). |
 | XSS | One `dangerouslySetInnerHTML`: JSON-LD with `<` escaped. Safe. |
 | CSRF | All state-changing routes check `Origin` against the portal origin; cookies are `SameSite=Lax` and `HttpOnly`. |
@@ -35,7 +35,7 @@ This is an engineering review, not a certification. A penetration test against a
 | SEC-02 (HMS-005) | Medium | Audit log could be modified or deleted by owner-level code | Fixed (migration 019) |
 | SEC-03 (HMS-010) | Medium | CI had no permission restriction, secret scanning, dependency or code scanning | Fixed |
 | SEC-04 (HMS-013) | Low | No HSTS | Fixed |
-| SEC-05 (HMS-019) | Low | Patient search not audited | Open |
+| SEC-05 (HMS-019) | Low | Patient search not audited | Fixed (migration 020) |
 | SEC-06 (HMS-020) | Medium | No app-level rate limiting on authenticated endpoints | Open: add an edge/WAF rate limit before launch |
 | SEC-07 | Low | CSP covers framing, base-uri and objects only; no `script-src`. Next.js inline scripts need nonces for a strict CSP. | Open: add a nonce-based CSP via middleware once integrations are known |
 | SEC-08 (HMS-029) | Low | Actions pinned by tag, not SHA | Open |

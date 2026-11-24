@@ -20,7 +20,7 @@ Website: `http://localhost:3000`. Portal: `http://localhost:3001/login`. Demo mo
 
 ## Database
 
-All SQL is included under `supabase/`. Fresh project: apply migrations 001-019 in filename order. Existing Phase 3 DB: only 017-019; Phase 2 DB: only 011-019, if originals unchanged. Run `supabase/tests/verify_baseline.sql`, `verify_live.sql`, `verify_phase3.sql`, and `verify_phase4.sql`. Configure initial data with `supabase/setup/01_provision_hospital.sql`. Keep private schema grants restricted. Do not apply optional seed to real hospital. Read `supabase/README.md`.
+All SQL is included under `supabase/`. Fresh project: apply migrations 001-020 in filename order. Existing Phase 3 DB: only 017-020; Phase 2 DB: only 011-020, if originals unchanged. Run `supabase/tests/verify_baseline.sql`, `verify_live.sql`, `verify_phase3.sql`, and `verify_phase4.sql`. Configure initial data with `supabase/setup/01_provision_hospital.sql`. Keep private schema grants restricted. Do not apply optional seed to real hospital. Read `supabase/README.md`.
 
 ## Structure
 
@@ -33,7 +33,7 @@ packages/types/       Shared contracts and demo data
 packages/validation/  Shared validation
 packages/config/      Shared config notes (placeholder; TS defaults in tsconfig.base.json)
 packages/database/    Database access layer notes (placeholder; SQL lives in supabase/)
-supabase/migrations/  19 ordered migrations (original 001-016 retained)
+supabase/migrations/  20 ordered migrations (original 001-016 retained)
 supabase/setup/       Initial provisioning template
 supabase/tests/       SQL verification scripts
 review/               Offline HTML and screenshots

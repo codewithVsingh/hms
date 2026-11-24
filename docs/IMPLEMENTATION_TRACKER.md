@@ -5,8 +5,8 @@ Running record for the audit and hardening work, so any session can resume witho
 **Resume here:** next up is Phase 3, in this order:
 1. HMS-016 doctor-unavailability workflow
 2. HMS-018 duplicate patient detection
-4. HMS-017 prescription amendments (needs a clinical decision on the workflow first)
-5. HMS-020 rate limiting
+3. HMS-017 prescription amendments (needs a clinical decision on the workflow first)
+4. HMS-020 rate limiting
 
 Start a local DB with `supabase/tests/local/run.sh` and add a T-test for each change.
 
@@ -29,6 +29,7 @@ Start a local DB with `supabase/tests/local/run.sh` and add a T-test for each ch
 | HMS-013 | P2 | `apps/*/next.config.ts` | HSTS in production | Build | Local |
 | HMS-014 | P3 | `apps/portal/app/not-found.tsx` | Mode-aware copy | E2E (existing) | Local |
 | HMS-015 | P3 | `apps/portal/public/sw.js` | Clear all caches on activate | Static PWA tests | Local |
+| HMS-019 | P2 | `supabase/migrations/202611250020_patient_search_audit.sql`, `apps/portal/features/live/workspace.tsx`, `extended.tsx` | Search audited (no search text stored); mobile and booking-reference search; 350 ms debounce instead of a request per keystroke | T12 | Local + CI |
 | HMS-033 | P1 | `docs/BACKUP_AND_RECOVERY.md` | Procedure documented | — | Restore drill pending |
 | Docs | — | `docs/*.md` (this set) | Audit, gap analysis, security, threat model, roles, env, DB, tests, readiness | — | — |
 
@@ -39,7 +40,6 @@ Start a local DB with `supabase/tests/local/run.sh` and add a T-test for each ch
 | HMS-016 | P1 | Migration + staff UI: list bookings affected by leave → reschedule or cancel with full refund (`reason=doctor_unavailable`) → notify | Notification providers for messages |
 | HMS-017 | P1 | `prescription_versions`, amend/void RPCs with reason, audit; UI shows history | Clinical lead approves workflow |
 | HMS-018 | P1 | Duplicate candidates at registration; merge RPC with two-person review, audit; never automatic | Decision on match rules |
-| HMS-019 | P2 | Audit `patient.search` without storing the search term | — |
 | HMS-020 | P2 | Edge rate limits (hosting WAF) or a DB-backed limiter for lookup/quote/upload | Hosting choice |
 | HMS-021 | P2 | Optional nurse `vitals.write` | Hospital decision |
 | HMS-022 | P2 | Daily cash close report; discounts with approval | Finance process |
