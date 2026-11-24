@@ -7,6 +7,7 @@ import { v2 } from './v2-client';
 import type { StaffContext } from '../../lib/server/supabase';
 import type { Role } from '@hms/types';
 import { extendedNav } from '../../lib/extended-nav';
+import { RxCorrections, RxStatusBadges, RxWithdrawals } from './prescription-corrections';
 type Item = { medicine: string; dose: string; frequency: string; duration: string; instructions: string };
 type Rx = {
   id: string;
@@ -20,6 +21,10 @@ type Rx = {
   followUp: string | null;
   released: boolean;
   items: Item[];
+  replaces?: { version: number; issuedAt: string } | null;
+  amendUntil?: string | null;
+  mine?: boolean;
+  withdrawalPending?: boolean;
 };
 type Visit = {
   reference: string;
@@ -84,6 +89,9 @@ const sampleRx: Rx = {
       instructions: 'Fictional record for design review',
     },
   ],
+  // Demo: issued by the demo doctor, amendment window open for two more days.
+  mine: true,
+  amendUntil: new Date(Date.now() + 2 * 86400000).toISOString(),
 };
 const sampleCare: Care = {
   patient: 'Sample Patient B',
@@ -178,6 +186,22 @@ function PrintPrescription({ rx, demo = false }: { rx: Rx; demo?: boolean }) {
       <p>
         Prescription · version {rx.version} · {rx.id}
       </p>
+      {rx.replaces && (
+        <p>
+          <strong>
+            Replaces version {rx.replaces.version} issued on {when(rx.replaces.issuedAt)}. Earlier copies are
+            no longer valid.
+          </strong>
+        </p>
+      )}
+      {rx.status !== 'signed' && rx.issuedAt && (
+        <p>
+          <strong>
+            {rx.status === 'void' ? 'WITHDRAWN' : 'SUPERSEDED'}: this version is not valid. Do not dispense
+            from it.
+          </strong>
+        </p>
+      )}
       <h3>{rx.doctor}</h3>
       <p>Medical registration: {rx.registration}</p>
       <p>
@@ -766,13 +790,17 @@ function CarePanel({ demo }: { demo: boolean }) {
               </>
             )}
             {care.prescriptions.map((rx) => (
-              <div className="ops-item live-card-head" key={rx.id}>
-                <span>
-                  Version {rx.version} · {human(rx.status)}
-                </span>
-                <Button variant="secondary" onClick={() => setPrinted(rx)}>
-                  View printable copy
-                </Button>
+              <div className="ops-item stack" key={rx.id}>
+                <div className="live-card-head">
+                  <span>
+                    Version {rx.version} · {human(rx.status === 'void' ? 'withdrawn' : rx.status)}{' '}
+                    <RxStatusBadges rx={rx} />
+                  </span>
+                  <Button variant="secondary" onClick={() => setPrinted(rx)}>
+                    View printable copy
+                  </Button>
+                </div>
+                <RxCorrections rx={rx} demo={demo} onChanged={async () => (demo ? undefined : load())} />
               </div>
             ))}
             {printed && <PrintPrescription rx={printed} demo={demo} />}
@@ -1695,6 +1723,8 @@ export function ExtendedPanel({ section, demo = false }: { section: string; demo
       return <AffectedBookings demo={demo} />;
     case 'desk-refunds':
       return <DeskRefunds demo={demo} />;
+    case 'rx-withdrawals':
+      return <RxWithdrawals demo={demo} />;
     case 'analytics':
       return <Reports demo={demo} />;
     case 'team-management':

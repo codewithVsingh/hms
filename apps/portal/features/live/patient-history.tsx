@@ -56,6 +56,17 @@ type Register = {
     version: number;
     handed_over_at: string | null;
     method: string | null;
+    amended?: boolean;
+  }[];
+  // Paper copies of superseded or withdrawn versions that reception must collect back.
+  recall?: {
+    id: string;
+    reference: string;
+    version: number;
+    status: string;
+    method: string;
+    handed_over_at: string;
+    doctor: string;
   }[];
   paper: { document_id: string; reference: string; uploaded_at: string; verified_at: string | null }[];
 };
@@ -139,9 +150,21 @@ const sampleRegister: Register = {
       appointment_id: 'visit-2',
       signed_at: demoDate,
       doctor: 'Dr. Ananya Sharma',
-      version: 1,
+      version: 2,
       handed_over_at: null,
       method: null,
+      amended: true,
+    },
+  ],
+  recall: [
+    {
+      id: 'DEMO-RX-001',
+      reference: 'BK-00012A7',
+      version: 1,
+      status: 'superseded',
+      method: 'printed',
+      handed_over_at: demoDate,
+      doctor: 'Dr. Ananya Sharma',
     },
   ],
   paper: [{ document_id: 'paper-1', reference: 'BK-00012A7', uploaded_at: demoDate, verified_at: null }],
@@ -553,6 +576,12 @@ export function PrescriptionRegister({ demo = false }: { demo?: boolean }) {
                   <strong>{r.reference}</strong>
                   <p>
                     {r.doctor} · {when(r.signed_at)}
+                    {r.amended && (
+                      <>
+                        {' '}
+                        · <L en={`Amended (version ${r.version})`} hi={`संशोधित (संस्करण ${r.version})`} />
+                      </>
+                    )}
                   </p>
                 </div>
                 <Badge tone={r.handed_over_at ? 'green' : 'amber'}>
@@ -600,6 +629,59 @@ export function PrescriptionRegister({ demo = false }: { demo?: boolean }) {
               )}
             </div>
           ))}
+          {!!data.recall?.length && (
+            <>
+              <h3>
+                <L en="Paper copies to recall" hi="वापस लेने वाली कागज़ी प्रतियाँ" />
+              </h3>
+              <Notice tone="warning">
+                <L
+                  en="These printed copies were replaced or withdrawn by the doctor and are no longer valid. Collect them from the patient (or confirm they were destroyed), then mark them recalled."
+                  hi="डॉक्टर ने ये छपी प्रतियाँ बदल दी हैं या वापस ले ली हैं और अब मान्य नहीं हैं। रोगी से वापस लें (या नष्ट होने की पुष्टि करें), फिर वापस ली गई चिह्नित करें।"
+                />
+              </Notice>
+              {data.recall.map((r) => (
+                <div className="history-card stack" key={r.id}>
+                  <div className="live-card-head">
+                    <div>
+                      <strong>{r.reference}</strong>
+                      <p>
+                        {r.doctor} · <L en={`Version ${r.version}`} hi={`संस्करण ${r.version}`} /> ·{' '}
+                        {when(r.handed_over_at)}
+                      </p>
+                    </div>
+                    <Badge tone="red">
+                      <L
+                        en={r.status === 'void' ? 'Withdrawn' : 'Replaced'}
+                        hi={r.status === 'void' ? 'वापस लिया गया' : 'बदला गया'}
+                      />
+                    </Badge>
+                  </div>
+                  <Button
+                    disabled={w.busy}
+                    variant="secondary"
+                    onClick={() =>
+                      void w.run(
+                        async () => {
+                          if (demo)
+                            setData((old) =>
+                              old ? { ...old, recall: (old.recall || []).filter((x) => x.id !== r.id) } : old,
+                            );
+                          else {
+                            await v3('prescription/recall', { id: r.id });
+                            await load();
+                          }
+                        },
+                        lang === 'hi' ? 'वापसी दर्ज की गई।' : 'Recall recorded.',
+                      )
+                    }
+                  >
+                    <L en="Mark paper copy recalled" hi="कागज़ी प्रति वापस ली गई चिह्नित करें" />
+                  </Button>
+                </div>
+              ))}
+            </>
+          )}
           <h3>
             <L en="Archive a paper prescription" hi="कागज़ी पर्चे की प्रति सहेजें" />
           </h3>

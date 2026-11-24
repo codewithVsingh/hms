@@ -28,6 +28,13 @@ const errors: Record<string, [number, string]> = {
   INVALID_STATUS: [409, 'This operation is not available for the current visit.'],
   CONFIGURATION_REQUIRED: [503, 'Service is not configured.'],
   SCAN_FAILED: [422, 'File did not pass security scanning.'],
+  NOT_CURRENT_VERSION: [
+    409,
+    'This prescription has already been replaced or withdrawn. Reload to see the current version.',
+  ],
+  WITHDRAWAL_PENDING: [409, 'A withdrawal request is pending for this prescription.'],
+  AMEND_WINDOW_CLOSED: [409, 'The amendment window has closed. Write a new prescription instead.'],
+  SECOND_PERSON_REQUIRED: [409, 'Another doctor or an administrator must confirm this withdrawal.'],
 };
 function fail(e: unknown) {
   if (e instanceof z.ZodError)
@@ -50,6 +57,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ acti
     await currentUser(c);
     if (path === 'cancel/quote')
       return out(await rpc(c, 'hms_v4_cancel_quote', { p_id: id.parse(q.get('id')) }));
+    if (path === 'prescription/history')
+      return out(await rpc(c, 'hms_v6_rx_history', { p_rx: id.parse(q.get('id')) }));
+    if (path === 'prescription/withdrawals') {
+      const ctx = await staffContext(c);
+      return out(
+        await rpc(c, 'hms_v6_rx_withdrawals', { p_org: ctx.organizationId, p_branch: ctx.branchId }),
+      );
+    }
     return out({ error: 'Not found' }, 404);
   } catch (e) {
     return fail(e);
@@ -118,7 +133,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
       }
     }
     const raw = await req.text();
-    if (raw.length > 10000) throw new Error('INVALID_REQUEST');
+    if (raw.length > 60000) throw new Error('INVALID_REQUEST');
     let b: unknown;
     try {
       b = JSON.parse(raw);
@@ -164,6 +179,69 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ act
     }
     const ctx = await staffContext(c),
       args = { p_org: ctx.organizationId, p_branch: ctx.branchId };
+    // Prescription corrections (migration 022; rules in docs/BUSINESS_RULES.md section 7).
+    if (path === 'prescription/amend') {
+      const item = z.object({
+        medicine: z.string().trim().min(1).max(180),
+        dose: z.string().trim().min(1).max(100),
+        frequency: z.string().trim().min(1).max(100),
+        duration: z.string().trim().min(1).max(100),
+        instructions: z.string().max(500),
+      });
+      const x = z
+        .object({
+          id,
+          items: z.array(item).min(1).max(25),
+          followUp: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}$/)
+            .nullable(),
+          reason: z.enum(['typo', 'dose_change', 'wrong_medicine', 'instructions', 'follow_up', 'other']),
+          note: z.string().max(500).nullable(),
+          attest: z.literal(true),
+        })
+        .parse(b);
+      return out(
+        await rpc(c, 'hms_v6_rx_amend', {
+          p_rx: x.id,
+          p_items: x.items,
+          p_follow: x.followUp,
+          p_reason: x.reason,
+          p_note: x.note,
+          p_attest: x.attest,
+        }),
+      );
+    }
+    if (path === 'prescription/withdraw') {
+      const x = z
+        .object({
+          id,
+          reason: z.enum(['wrong_patient', 'issued_in_error', 'duplicate', 'other']),
+          note: z.string().max(500).nullable(),
+        })
+        .parse(b);
+      return out(
+        await rpc(c, 'hms_v6_rx_withdraw_request', { p_rx: x.id, p_reason: x.reason, p_note: x.note }),
+      );
+    }
+    if (path === 'prescription/withdraw/cancel') {
+      const x = z.object({ id }).parse(b);
+      return out(await rpc(c, 'hms_v6_rx_withdraw_cancel', { p_withdrawal: x.id }));
+    }
+    if (path === 'prescription/withdraw/decide') {
+      const x = z.object({ id, approve: z.boolean(), note: z.string().max(500).nullable() }).parse(b);
+      return out(
+        await rpc(c, 'hms_v6_rx_withdraw_decide', {
+          p_withdrawal: x.id,
+          p_approve: x.approve,
+          p_note: x.note,
+        }),
+      );
+    }
+    if (path === 'prescription/recall') {
+      const x = z.object({ id }).parse(b);
+      return out(await rpc(c, 'hms_v6_rx_recall_ack', { p_rx: x.id }));
+    }
     if (path === 'timeline') {
       const x = z.object({ mrn, offset: z.number().int().min(0).max(100000) }).parse(b);
       return out(await rpc(c, 'hms_v4_patient_timeline', { ...args, p_mrn: x.mrn, p_offset: x.offset }));

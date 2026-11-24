@@ -84,6 +84,13 @@ export const extendedNav = [
     roles: ['staff', 'admin'],
   },
   {
+    id: 'rx-withdrawals',
+    label: 'Prescription withdrawals',
+    icon: 'file',
+    perms: ['prescriptions.issue', 'settings.manage'],
+    roles: ['doctor', 'admin'],
+  },
+  {
     id: 'cancellation-policy',
     label: 'Cancellation policy',
     icon: 'settings',

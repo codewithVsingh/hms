@@ -12,6 +12,10 @@ const texts: Record<string, string> = {
   payment_received: 'A payment was received. Sign in to view your receipt.',
   refund_processed: 'A refund was processed. Sign in or contact reception for details.',
   record_available: 'A document is available in your patient portal. Sign in securely.',
+  prescription_updated:
+    'A prescription in your patient portal was updated. Sign in to view the current version.',
+  prescription_withdrawn:
+    'A prescription in your patient portal was withdrawn. Please contact the hospital for details.',
   appointment_confirmed: 'Your appointment has been confirmed. Sign in to the hospital portal for details.',
   appointment_changed: 'Your appointment details have changed. Sign in to the hospital portal for details.',
   appointment_cancelled:
