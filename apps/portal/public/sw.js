@@ -4,7 +4,8 @@ self.addEventListener('install', (event) => event.waitUntil(self.skipWaiting()))
 self.addEventListener('activate', (event) =>
   event.waitUntil(
     (async () => {
-      for (const k of await caches.keys()) if (k.startsWith('hms-')) await caches.delete(k);
+      // The portal never caches responses; delete any cache on this origin, including legacy ones.
+      for (const k of await caches.keys()) await caches.delete(k);
       await self.clients.claim();
     })(),
   ),

@@ -281,3 +281,21 @@ DO $$ BEGIN
   PERFORM hms_test.ok(EXISTS (SELECT 1 FROM hms.audit_logs WHERE action = 'booking.cancel_policy.update'), 'policy change audited');
 END $$;
 \echo 'ok T9 sensitive actions recorded in audit log'
+
+-- ---------------------------------------------------------------- T11 references and audit immutability (migration 019)
+DO $$
+DECLARE bad int; total int; distinct_refs int;
+BEGIN
+  SELECT count(*), count(DISTINCT reference),
+         count(*) FILTER (WHERE reference !~ '^BK-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{7}$')
+    INTO total, distinct_refs, bad FROM hms.appointments;
+  PERFORM hms_test.ok(total >= 4 AND bad = 0, format('%s of %s references use the unambiguous random format', total - bad, total));
+  PERFORM hms_test.ok(distinct_refs = total, 'references are unique');
+  PERFORM hms_test.ok(NOT EXISTS (SELECT 1 FROM hms.appointments WHERE reference ~ '^BK-0{3}'), 'no sequential zero-padded references');
+  PERFORM hms_test.ok((SELECT count(DISTINCT hms_private.random_reference(7)) FROM generate_series(1, 2000)) = 2000, '2000 generated references are distinct');
+  -- Even the table owner cannot rewrite or delete audit history through normal statements.
+  PERFORM hms_test.expect_error('UPDATE hms.audit_logs SET result = ''tampered''', 'AUDIT_LOG_IMMUTABLE');
+  PERFORM hms_test.expect_error('DELETE FROM hms.audit_logs', 'AUDIT_LOG_IMMUTABLE');
+  PERFORM hms_test.expect_error('TRUNCATE hms.audit_logs', 'AUDIT_LOG_IMMUTABLE');
+END $$;
+\echo 'ok T11 random unambiguous booking references; audit log is append-only'
