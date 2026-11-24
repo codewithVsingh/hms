@@ -44,6 +44,13 @@ Patients are not a staff role. They act through a verified phone session, and ev
 - See affected bookings and cancel as the hospital (full refund, reason recorded): `appointments.create` (reception) or `settings.manage` (admin). Patient phone numbers are shown only to roles with `patients.demographics.read`.
 - Record a refund given at the desk: `payments.collect` (billing). Online refunds still need `refunds.approve` (admin) unless automatic policy refunds are on.
 
+## Prescription corrections (migration 022)
+
+- Amend: only the doctor who issued the prescription, within the amendment window.
+- Request withdrawal: the issuing doctor. Confirm or reject: a **different** person, either a doctor in the branch (`prescriptions.issue`) or an administrator (`settings.manage`). Administrators see the reason but not the medicines.
+- Version history: clinicians with a care assignment for the patient.
+- Mark a paper copy recalled: reception (`prescriptions.archive`).
+
 ## Gaps and decisions pending
 
 - Nurse vitals entry (`vitals.write`): HMS-021.

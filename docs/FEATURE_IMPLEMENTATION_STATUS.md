@@ -50,7 +50,7 @@ Key: **Done** = implemented end to end (UI → API → DB) · **Done (tested)** 
 | Doctor timeline by UHID | Done | Paginated; access-checked and audited |
 | Vitals, diagnoses, allergies, history | Done | Doctor only (HMS-021) |
 | Prescriptions: draft, issue with attestation, print | Done | |
-| Prescription amendment / voiding | Missing | HMS-017 |
+| Prescription amendment and withdrawal | Done (tested) | Issuer-only, 72 h window, two-person withdrawal, paper recall; T14 |
 | Paper prescription upload and verification | Config | Needs scanner |
 | Documents: upload, signed download | Config | Needs scanner |
 | Duplicate detection and merge | Missing | HMS-018 |

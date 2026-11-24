@@ -39,3 +39,18 @@ Private RPCs with server-only settlement permissions: `hms_claim_order`, `hms_at
 | POST | `appointments/hospital-cancel` | `{id, reason}`: hospital cancellation, full refund (online → admin approval; desk → desk refunds) |
 | GET | `refunds/desk` | Desk refunds waiting to be handed back (billing) |
 | POST | `refunds/desk` | `{id, method}`: record a desk refund as given |
+
+
+## Prescription corrections (v3)
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `prescription/amend` | `{id, items, followUp, reason, note, attest}`: new version (issuing doctor, within window) |
+| POST | `prescription/withdraw` | `{id, reason, note}`: request withdrawal (issuing doctor) |
+| POST | `prescription/withdraw/cancel` | `{id}`: requester cancels a pending request |
+| POST | `prescription/withdraw/decide` | `{id, approve, note}`: second person confirms or rejects (note required to reject) |
+| GET | `prescription/withdrawals` | Pending requests for doctors and admins |
+| GET | `prescription/history?id=` | All versions with reasons and decisions (clinicians) |
+| POST | `prescription/recall` | `{id}`: reception marks a paper copy of a replaced/withdrawn version recalled |
+
+Rules: [BUSINESS_RULES.md](BUSINESS_RULES.md) §7.

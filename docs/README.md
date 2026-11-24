@@ -4,6 +4,7 @@
 
 | Document | Purpose |
 |---|---|
+| [BUSINESS_RULES.md](BUSINESS_RULES.md) | **Every business rule**, where it is enforced, its test, and the decision log |
 | [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) | Verdict and launch checklist |
 | [PROJECT_AUDIT.md](PROJECT_AUDIT.md) | Original condition and architecture findings |
 | [GAP_ANALYSIS.md](GAP_ANALYSIS.md) | All findings with priority and status |

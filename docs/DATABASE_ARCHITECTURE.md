@@ -1,6 +1,6 @@
 # Database architecture
 
-PostgreSQL on Supabase. 46 tables in the private `hms` schema, helper functions in `hms_private`, and a narrow set of RPCs in `public`. Browser roles (`anon`, `authenticated`) have **no** access to `hms`/`hms_private`; every read and write goes through a `public.hms_*` function that checks permission or ownership. RLS is enabled on every table as a second layer.
+PostgreSQL on Supabase. 47 tables in the private `hms` schema, helper functions in `hms_private`, and a narrow set of RPCs in `public`. Browser roles (`anon`, `authenticated`) have **no** access to `hms`/`hms_private`; every read and write goes through a `public.hms_*` function that checks permission or ownership. RLS is enabled on every table as a second layer.
 
 ## Schemas
 
@@ -15,7 +15,7 @@ PostgreSQL on Supabase. 46 tables in the private `hms` schema, helper functions 
 - **Tenancy and people:** organizations, branches, hospital_settings, departments, profiles, memberships, membership_branches, roles, permissions, role_permissions, user_roles, doctors, doctor_branches
 - **Patients:** patients (UHID `mrn`, e.g. `PT-000123`), patient_owners (verified phone account ↔ patient), patient_contacts, patient_branches, consent_records, notification_preferences
 - **Scheduling:** doctor_schedules, doctor_leaves, appointment_slots, appointments (reference `BK-…`), appointment_status_history, appointment_moves, queue_counters, care_assignments
-- **Clinical:** encounters, clinical_notes, vitals, diagnoses, patient_history, prescriptions, prescription_items, prescription_handover, paper_prescription_archive, patient_documents
+- **Clinical:** encounters, clinical_notes, vitals, diagnoses, patient_history, prescriptions (versioned; one signed per encounter), prescription_items, prescription_withdrawals, prescription_handover (with recall), paper_prescription_archive, patient_documents
 - **Finance:** invoices, invoice_items, payment_orders, payments, refunds, booking_cancellations, webhook_events
 - **Operations:** notification_jobs, public_inquiries, content_entries, audit_logs
 
@@ -65,9 +65,10 @@ Apply in filename order. Never edit a migration that has been applied; add a new
 | 019 | `202611250019_random_references_and_audit_guard` | Random booking references, append-only audit log |
 | 020 | `202611250020_patient_search_audit` | Patient search by mobile/reference; searches audited |
 | 021 | `202611250021_doctor_unavailability` | Leave reasons, affected-bookings list, hospital cancellation with full refund, desk refunds |
+| 022 | `202611250022_prescription_corrections` | Prescription versions, amendment window, two-person withdrawal, paper recall |
 
 **Existing databases:** if migration 012 was attempted before, it failed and rolled back completely. Apply the corrected 012, then 013 onward in order. Use the Supabase migration history (`supabase_migrations.schema_migrations`) to see exactly what is applied.
 
 ## Testing
 
-`supabase/tests/local/run.sh` builds a fresh database (Supabase shim + all migrations), runs the four `verify_*.sql` scripts, the behavioural suite (`10_behaviour.sql`, T1–T9, T11–T13) and the concurrency race (`20_concurrency.sh`). CI runs it on `postgres:16` for every pull request. The shim in `tests/local/00_supabase_shim.sql` is for local and CI use only. Never apply it to a Supabase project.
+`supabase/tests/local/run.sh` builds a fresh database (Supabase shim + all migrations), runs the four `verify_*.sql` scripts, the behavioural suite (`10_behaviour.sql`, T1–T9, T11–T14) and the concurrency race (`20_concurrency.sh`). CI runs it on `postgres:16` for every pull request. The shim in `tests/local/00_supabase_shim.sql` is for local and CI use only. Never apply it to a Supabase project.

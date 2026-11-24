@@ -30,7 +30,7 @@ Every variable the code reads (checked by searching the source). Templates: `app
 | `HMS_AUTO_POLICY_REFUNDS` | | Refunds | `true` to start policy refunds automatically. Default: admin approves each refund. |
 | `HMS_NOTIFY_EMAIL`, `RESEND_API_KEY`ᵃ, `HMS_FROM_EMAIL` | ᵃ | Email | Opt-in patients only. |
 | `HMS_NOTIFY_SMS`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`ᵃ, `TWILIO_FROM` | ᵃ | SMS | DLT-registered templates required in India. |
-| `HMS_NOTIFY_WHATSAPP`, `WHATSAPP_ACCESS_TOKEN`ᵃ, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_GRAPH_VERSION`, `HMS_WA_LANGUAGE`, `HMS_WA_TEMPLATE_MAP` | ᵃ | WhatsApp Business API | `HMS_WA_TEMPLATE_MAP` is JSON mapping event keys to approved template names. |
+| `HMS_NOTIFY_WHATSAPP`, `WHATSAPP_ACCESS_TOKEN`ᵃ, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_GRAPH_VERSION`, `HMS_WA_LANGUAGE`, `HMS_WA_TEMPLATE_MAP` | ᵃ | WhatsApp Business API | `HMS_WA_TEMPLATE_MAP` is JSON mapping event keys to approved template names. Keys: `appointment_confirmed`, `appointment_changed`, `appointment_cancelled`, `reminder_24h`, `reminder_1h`, `payment_received`, `refund_processed`, `record_available`, `prescription_updated`, `prescription_withdrawn`. |
 | `HMS_PRIVATE_SCANNER_URL`, `HMS_PRIVATE_SCANNER_TOKEN`ᵃ | ᵃ | Uploads | HTTPS malware scanner returning `{"clean":true}`. Without it, uploads are refused. |
 | `HMS_CALLBACK_ENABLED`, `HMS_CALLBACK_TURNSTILE_SECRET`ᵃ | ᵃ | Website callback form | Handled by the portal server. |
 

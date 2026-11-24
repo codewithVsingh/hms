@@ -28,8 +28,9 @@ Apply in a **new development Supabase project first**. Do not paste all scripts 
 | 0019_random_references_and_audit_guard | Random unambiguous booking references, append-only audit log (file `202611250019_…`) |
 | 0020_patient_search_audit | Patient search by mobile and booking reference; searches audited (file `202611250020_…`) |
 | 0021_doctor_unavailability | Leave reasons, affected bookings, hospital cancellation with full refund, desk refunds (file `202611250021_…`) |
+| 0022_prescription_corrections | Prescription versions, amendment window, two-person withdrawal, paper recall (file `202611250022_…`) |
 
-Actual filenames begin with `202611240001` through `202611240018`, then `202611250019`–`202611250021`. For a fresh database apply all twenty-one in order. Existing Phase 3 database: apply only 017–021. Existing Phase 2 database: 011–021; Phase 1: 006–021, provided previous migrations are unchanged. Use migration history and backups, not blind reapplication. Original 001–010 are preserved. Migration 012 contained a syntax error that made it impossible to apply; it was corrected in place (no database can have recorded it as applied) — if you attempted it before, simply apply it now and continue with 013+.
+Actual filenames begin with `202611240001` through `202611240018`, then `202611250019`–`202611250022`. For a fresh database apply all twenty-two in order. Existing Phase 3 database: apply only 017–022. Existing Phase 2 database: 011–022; Phase 1: 006–022, provided previous migrations are unchanged. Use migration history and backups, not blind reapplication. Original 001–010 are preserved. Migration 012 contained a syntax error that made it impossible to apply; it was corrected in place (no database can have recorded it as applied) — if you attempted it before, simply apply it now and continue with 013+.
 
 ## Automated database tests
 
