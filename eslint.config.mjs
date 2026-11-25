@@ -14,6 +14,7 @@ export default tseslint.config(
       '**/.turbo/**',
       '**/next-env.d.ts',
       'review/**',
+      '.claude/**',
       'scripts/review-vendor/**',
       'playwright-report/**',
       'test-results/**',
@@ -41,6 +42,57 @@ export default tseslint.config(
     files: ['**/*.{js,cjs,mjs}'],
     languageOptions: { globals: { ...globals.node } },
     rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  // Service boundaries: apps never import each other, packages never import apps.
+  // Cross-app communication is via the database (RPC), versioned HTTP, or shared packages only.
+  {
+    files: ['apps/website/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/apps/portal/**', '**/portal/**', '@hms/portal', '@hms/portal/*'],
+              message:
+                'The website must not import portal code. Share via packages/* or call the portal over HTTP.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['apps/portal/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/apps/website/**', '**/website/**', '@hms/website', '@hms/website/*'],
+              message: 'The portal must not import website code. Share via packages/* instead.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['packages/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/apps/**', '@hms/portal', '@hms/portal/*', '@hms/website', '@hms/website/*'],
+              message: 'Packages must not depend on apps.',
+            },
+          ],
+        },
+      ],
+    },
   },
   {
     // Offline QA preview harness that runs in the browser.

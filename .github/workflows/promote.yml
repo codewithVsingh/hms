@@ -1,0 +1,84 @@
+name: Promote staging to production
+# Manual, approval-gated. Fast-forwards `main` to the exact commit that was tested on `staging`.
+# Vercel's production projects track `main`, so each app whose code changed builds and deploys;
+# unchanged apps are skipped by turbo-ignore. Nothing is force-pushed.
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit to promote. Must be the current head of staging (leave empty to use it).
+        required: false
+        default: ''
+      migrations_applied:
+        description: I have already applied any new database migrations to the PRODUCTION Supabase project.
+        type: boolean
+        default: false
+
+concurrency:
+  group: promote-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  checks: read
+  statuses: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      promote: ${{ steps.gate.outputs.promote }}
+      sha: ${{ steps.gate.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gate (fast-forward possible, db gate, deploy plan)
+        id: gate
+        run: |
+          sha="${{ inputs.sha }}"
+          [ -n "$sha" ] || sha="$(git rev-parse origin/staging)"
+          bash scripts/promote-plan.sh "$sha" "${{ inputs.migrations_applied }}"
+      - name: Required checks passed on that commit
+        if: steps.gate.outputs.promote == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha="${{ steps.gate.outputs.sha }}"
+          state="$(gh api "repos/${{ github.repository }}/commits/$sha/check-runs" --jq '[.check_runs[] | select(.name=="ci-ok")] | sort_by(.completed_at) | last | .conclusion')"
+          echo "ci-ok on ${sha:0:9}: ${state:-missing}"
+          [ "$state" = "success" ] || { echo "ci-ok has not passed on this commit"; exit 1; }
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.promote == 'true'
+        with:
+          node-version: 22
+      - name: Staging smoke test (staging must be up and wired correctly)
+        if: steps.gate.outputs.promote == 'true'
+        run: |
+          if [ -z "${{ vars.STAGING_WEBSITE_URL }}" ] || [ -z "${{ vars.STAGING_PORTAL_URL }}" ]; then
+            echo "Set repository variables STAGING_WEBSITE_URL and STAGING_PORTAL_URL (Settings > Secrets and variables > Actions > Variables)."; exit 1
+          fi
+          node scripts/smoke-deployed.mjs --website "${{ vars.STAGING_WEBSITE_URL }}" --portal "${{ vars.STAGING_PORTAL_URL }}" ${{ vars.STAGING_DEMO == 'true' && '--demo' || '' }}
+
+  deploy:
+    needs: plan
+    if: needs.plan.outputs.promote == 'true'
+    runs-on: ubuntu-latest
+    # Required reviewers on this environment are the human approval gate.
+    environment: production
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # PROMOTE_TOKEN: fine-grained token or GitHub App token allowed to bypass the `main` ruleset.
+          token: ${{ secrets.PROMOTE_TOKEN }}
+      - name: Re-check fast-forward just before pushing
+        run: bash scripts/promote-plan.sh "${{ needs.plan.outputs.sha }}" "${{ inputs.migrations_applied }}"
+      - name: Fast-forward main to the tested commit (no force)
+        run: git push origin "${{ needs.plan.outputs.sha }}:refs/heads/main"
+      - name: Next steps
+        run: |
+          echo "Production builds started for the changed apps in Vercel."
+          echo "When they are Ready, run the 'Post-deploy smoke' workflow with the production URLs."

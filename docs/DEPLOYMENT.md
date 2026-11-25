@@ -1,3 +1,5 @@
+> **Current release process (website / portal / database lanes, environments, rollback): see docs/RELEASE-AND-SERVICES.md.**
+>
 > Historical Phase 1 document. For the current live implementation and limitations, use README.md, docs/LIVE-INTEGRATION.md, docs/API.md and docs/QA-PHASE2.md.
 
 # Environment and deployment

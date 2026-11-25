@@ -16,7 +16,7 @@ pnpm install
 pnpm dev
 ```
 
-Website: `http://localhost:3000`. Portal: `http://localhost:3001/login`. Demo mode requires no database. Use `HMS_DEMO_MODE=true` in portal development; do not expose demo roles in production. Use the example environment files for live integration. The public website stays a normal site; only the portal registers the service worker. PWA install requires localhost or HTTPS and a supported browser.
+Website: `http://localhost:3000`. Portal: `http://localhost:3001/login`. Demo mode requires no database. Use `HMS_DEMO_MODE=true` in portal development; do not expose demo roles in production. Use the example environment files for live integration. The public website stays a normal site. The PWA (manifest, install prompt, service worker) is limited to the portal sign-in page (`/login`) and the signed-in staff workspaces (`/doctor`, `/staff`, `/admin`); booking, My Bookings, cancellation, password recovery and `/patient` are plain web pages. The scope lives in `apps/portal/lib/pwa.ts` and `apps/portal/public/sw.js` and is guarded by `tests/pwa-scope.spec.ts` and `pnpm test:security`. PWA install requires localhost or HTTPS and a supported browser.
 
 ## Database
 
@@ -49,9 +49,10 @@ pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm build
+pnpm test:contracts
 pnpm test:security
 pnpm exec playwright install chromium
 pnpm test
 ```
 
-Read `docs/PHASE4-HANDOVER.md` first for what Phase 4 adds (bilingual EN/Hindi UI, patient history, booking cancellation and refunds), its limitations and the staging checklist. `docs/PHASE3-HANDOVER.md` still covers the Phase 3 baseline: environment setup, API groups and earlier implemented/deferred items. Phase 2 documents are historical. Never connect real clinical records or live payments until verification is complete.
+Releases, deployment lanes (website vs portal vs database), environments and service boundaries: `docs/RELEASE-AND-SERVICES.md`. Read `docs/PHASE4-HANDOVER.md` first for what Phase 4 adds (bilingual EN/Hindi UI, patient history, booking cancellation and refunds), its limitations and the staging checklist. `docs/PHASE3-HANDOVER.md` still covers the Phase 3 baseline: environment setup, API groups and earlier implemented/deferred items. Phase 2 documents are historical. Never connect real clinical records or live payments until verification is complete.

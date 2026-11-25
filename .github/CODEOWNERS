@@ -1,0 +1,8 @@
+# Every path needs a reviewer; add teammates per area as the team grows.
+# Website, portal, shared packages and the database are separate release lanes (docs/RELEASE-AND-SERVICES.md).
+*                    @codewithVsingh
+/apps/website/       @codewithVsingh
+/apps/portal/        @codewithVsingh
+/packages/           @codewithVsingh
+/supabase/           @codewithVsingh
+/.github/            @codewithVsingh

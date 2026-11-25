@@ -1,29 +1,93 @@
 name: HMS checks
+# Path-aware: a website-only change does not build the portal and vice versa. Shared packages,
+# lockfile and tooling changes build both. Branch protection should require ONLY `ci-ok`.
 on:
   pull_request:
+    branches: [main, staging]
   push:
-    branches: [main]
+    branches: [main, staging]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  HMS_DEMO_MODE: 'true'
+  NEXT_PUBLIC_WEBSITE_URL: http://localhost:3000
+  NEXT_PUBLIC_PORTAL_URL: http://localhost:3001
+
 jobs:
-  checks:
+  changes:
     runs-on: ubuntu-latest
-    env:
-      HMS_DEMO_MODE: 'true'
-      NEXT_PUBLIC_WEBSITE_URL: http://localhost:3000
-      NEXT_PUBLIC_PORTAL_URL: http://localhost:3001
+    outputs:
+      website: ${{ steps.diff.outputs.website }}
+      portal: ${{ steps.diff.outputs.portal }}
+      shared: ${{ steps.diff.outputs.shared }}
+      db: ${{ steps.diff.outputs.db }}
+      tests: ${{ steps.diff.outputs.tests }}
+      base: ${{ steps.base.outputs.base }}
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
         with:
-          version: 10.11.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: pnpm install --frozen-lockfile
+          fetch-depth: 0
+      - id: base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+          fi
+      - id: diff
+        run: bash scripts/ci-changes.sh "${{ steps.base.outputs.base }}" | tee -a "$GITHUB_OUTPUT"
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
       - run: pnpm format:check
       - run: pnpm lint
+      - run: pnpm test:contracts
       - run: pnpm test:security
-      - run: pnpm typecheck
-      - run: pnpm build
+
+  website:
+    needs: changes
+    if: needs.changes.outputs.website == 'true' || needs.changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm exec turbo run typecheck build --filter=@hms/website...
+
+  portal:
+    needs: changes
+    if: needs.changes.outputs.portal == 'true' || needs.changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm exec turbo run typecheck build --filter=@hms/portal...
+
+  db:
+    needs: changes
+    if: needs.changes.outputs.db == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Migrations are append-only
+        run: bash scripts/check-migrations-append-only.sh "${{ needs.changes.outputs.base }}"
+
+  e2e:
+    needs: changes
+    if: >-
+      needs.changes.outputs.website == 'true' || needs.changes.outputs.portal == 'true' ||
+      needs.changes.outputs.shared == 'true' || needs.changes.outputs.tests == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test
       - uses: actions/upload-artifact@v4
@@ -32,3 +96,14 @@ jobs:
           name: playwright-report
           path: playwright-report/
           if-no-files-found: ignore
+
+  ci-ok:
+    if: always()
+    needs: [changes, quality, website, portal, db, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All required jobs passed or were legitimately skipped
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ] || [ "${{ contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "A required job failed or was cancelled"; exit 1
+          fi
