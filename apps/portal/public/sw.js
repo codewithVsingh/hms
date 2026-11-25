@@ -9,10 +9,14 @@ self.addEventListener('activate', (event) =>
     })(),
   ),
 );
+// Only the sign-in page and signed-in workspaces are part of the PWA (keep in sync with lib/pwa.ts).
+// Booking, cancellation, recovery and every other page are left to the browser untouched.
+const PWA_PATH = /^\/(login|doctor|staff|admin)(\/|$)/;
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  if (req.method !== 'GET' || req.mode !== 'navigate' || new URL(req.url).origin !== self.location.origin)
-    return;
+  if (req.method !== 'GET' || req.mode !== 'navigate') return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin || !PWA_PATH.test(url.pathname)) return;
   event.respondWith(
     fetch(req, { cache: 'no-store' }).catch(
       () =>

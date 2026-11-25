@@ -63,7 +63,7 @@ test('portal-only PWA, no authenticated cache writes', () => {
   assert.match(sw, /cache:'no-store'/);
   assert.doesNotMatch(sw, /caches\.open|cache\.put|cache\.add|localStorage|indexedDB/);
   assert.match(sw, /req\.mode!=='navigate'/);
-  assert.match(code('apps/portal/app/manifest.ts'), /start_url:'\/login'/);
+  assert.match(code('apps/portal/app/manifest.webmanifest/route.ts'), /start_url:'\/login'/);
   assert.doesNotMatch(code('apps/website/app/layout.tsx'), /PortalPWA|manifest.webmanifest/);
 });
 test('PWA network failure returns safe generic fallback, not a stored record', async () => {
@@ -95,6 +95,56 @@ test('PWA network failure returns safe generic fallback, not a stored record', a
     respondWith: () => (called = true),
   });
   assert.equal(called, false);
+});
+test('PWA scope: only login and signed-in workspaces; not root, booking, cancellation or website', async () => {
+  const root = code('apps/portal/app/layout.tsx');
+  assert.doesNotMatch(root, /PortalPWA|manifest|appleWebApp|apple-touch-icon/);
+  assert.match(code('apps/portal/app/login/layout.tsx'), /pwaMetadata[\s\S]*<PortalPWA ?\/>/);
+  const role = code('apps/portal/app/[role]/layout.tsx');
+  assert.match(role, /isPwaRole\(\(await params\)\.role\)\?pwaMetadata:\{\}/);
+  assert.match(role, /pwa&&<PortalPWA ?\/>/);
+  assert.match(code('apps/portal/lib/pwa.ts'), /pwaRoles=\['doctor','staff','admin'\]/);
+  for (const dir of ['book', 'my-bookings', 'manage-booking', 'patient', 'forgot-password', 'reset-password'])
+    assert.doesNotMatch(code(`apps/portal/app/${dir}/page.tsx`), /PortalPWA|pwaMetadata/);
+  assert.doesNotMatch(code('apps/website/app/layout.tsx'), /PortalPWA|manifest|pwaMetadata/);
+});
+test('service worker only handles login and workspace navigations', async () => {
+  const handlers = {};
+  const context = {
+    self: {
+      location: { origin: 'https://portal.example.test' },
+      addEventListener: (k, f) => (handlers[k] = f),
+    },
+    URL,
+    Response,
+    fetch: async () => {
+      throw Error('offline');
+    },
+  };
+  runInNewContext(readFileSync('apps/portal/public/sw.js', 'utf8'), context);
+  const handled = (path) => {
+    let called = false;
+    handlers.fetch({
+      request: { method: 'GET', mode: 'navigate', url: 'https://portal.example.test' + path },
+      respondWith: () => (called = true),
+    });
+    return called;
+  };
+  for (const path of ['/login', '/doctor', '/staff/appointments', '/admin/roles?x=1'])
+    assert.equal(handled(path), true, path);
+  for (const path of [
+    '/',
+    '/book',
+    '/my-bookings',
+    '/manage-booking',
+    '/patient',
+    '/forgot-password',
+    '/reset-password',
+    '/loginx',
+    '/doctors',
+    '/auth/callback',
+  ])
+    assert.equal(handled(path), false, path);
 });
 test('phase 3 service-only document creation, notification and reconciliation', () => {
   assert.match(
