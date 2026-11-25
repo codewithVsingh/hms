@@ -12,3 +12,6 @@ test-results/
 review/
 scripts/review-vendor/
 apps/*/next-env.d.ts
+
+# Third-party agent skills are kept as published
+.claude/
