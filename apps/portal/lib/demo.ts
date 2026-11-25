@@ -192,7 +192,7 @@ export const permissionRows = [
   ['View audit events', false, false, true],
 ] as const;
 
-// Additional Phase 3 routes in the preview navigation.
+// Additional routes in the preview navigation.
 roleNav.doctor.push({
   group: 'Clinical operations',
   items: [

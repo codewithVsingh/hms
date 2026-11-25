@@ -1830,7 +1830,7 @@ export class Workspace extends React.Component<{ role: Role; section: string; we
             )}
             <div className="page-content">{pages[section]?.()}</div>
             <footer className="work-footer">
-              Aarogya HMS · Phase 1 UI preview <span>Privacy-first architecture · Demo data</span>
+              Aarogya HMS · UI preview <span>Privacy-first architecture · Demo data</span>
             </footer>
           </main>
         </div>

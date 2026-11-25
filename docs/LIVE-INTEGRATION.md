@@ -14,7 +14,7 @@ The booking API uses same-origin POST checks. Configure `NEXT_PUBLIC_PORTAL_URL`
 
 ## 3. SQL and initial configuration
 
-Follow `supabase/README.md`. Apply migrations 001–010 (only 006–010 if original Phase 1 migrations already applied unchanged), run verification scripts, then provision workforce and organization with `supabase/setup/01_provision_hospital.sql`. Configure doctors/weekly schedules in admin settings and generate the next 31 days. Add additional staff and doctors via the same SQL pattern. Keep online booking/payment disabled until ready. The admin UI manages existing doctor fee/publication and schedules, not Auth invitations. For schedule changes requiring inventory replacement, review old future slots and existing appointments with the database operator. Time zone is Asia/Kolkata in the UI; keep the initial branch configured accordingly.
+Follow `supabase/README.md`. Apply migrations 001–010 (only 006–010 if migrations 001–005 were already applied unchanged), run verification scripts, then provision workforce and organization with `supabase/setup/01_provision_hospital.sql`. Configure doctors/weekly schedules in admin settings and generate the next 31 days. Add additional staff and doctors via the same SQL pattern. Keep online booking/payment disabled until ready. The admin UI manages existing doctor fee/publication and schedules, not Auth invitations. For schedule changes requiring inventory replacement, review old future slots and existing appointments with the database operator. Time zone is Asia/Kolkata in the UI; keep the initial branch configured accordingly.
 
 ## 4. Razorpay test integration
 

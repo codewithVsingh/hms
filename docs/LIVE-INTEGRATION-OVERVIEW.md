@@ -1,10 +1,10 @@
-# HMS Phase 2 — integration-ready source
+# HMS live integration — integration-ready source
 
-This is the next version of the Phase 1 monorepo. It contains the retained fictional UI preview and a separate live application implementation using Supabase Auth/PostgreSQL, server-authorized RPCs and Razorpay. **Not production-certified.** No live project, OTP provider, payment account, production hospital information or credentials were connected during authoring. Do not use real patients or real money until staging acceptance and healthcare security/privacy review are complete.
+This is the integration-ready version of the original UI-preview monorepo. It contains the retained fictional UI preview and a separate live application implementation using Supabase Auth/PostgreSQL, server-authorized RPCs and Razorpay. **Not production-certified.** No live project, OTP provider, payment account, production hospital information or credentials were connected during authoring. Do not use real patients or real money until staging acceptance and healthcare security/privacy review are complete.
 
 ## Open the existing UI without credentials
 
-Node.js 22 LTS and pnpm 10 are required. From the extracted `hms-phase-two` root:
+Node.js 22 LTS and pnpm 10 are required. From the repository root:
 
 ```sh
 npm install -g pnpm@10.11.0
@@ -44,7 +44,7 @@ pnpm exec playwright install chromium
 pnpm test
 ```
 
-The full dependency installation and Next.js build could not run here because npm registry DNS was unavailable. No PostgreSQL instance or provider credentials were available. Source syntax, payment cryptography/guard tests and a limited demo browser component harness were checked. See `docs/QA-PHASE2.md` for exactly what passed and what must be tested next. Generate and commit the pnpm lockfile after successful install. Audit dependencies before deployment.
+The full dependency installation and Next.js build could not run here because npm registry DNS was unavailable. No PostgreSQL instance or provider credentials were available. Source syntax, payment cryptography/guard tests and a limited demo browser component harness were checked. See `docs/QA-ACCEPTANCE-MATRIX.md` for exactly what passed and what must be tested next. Generate and commit the pnpm lockfile after successful install. Audit dependencies before deployment.
 
 ## Still out of scope / incomplete
 

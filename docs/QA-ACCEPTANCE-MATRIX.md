@@ -1,10 +1,10 @@
-# Phase 2 validation and acceptance matrix
+# Validation and acceptance matrix
 
 ## Executed in the authoring environment
 
 - TypeScript syntax transpilation: 44 source files, 0 syntax diagnostics. This is not `tsc --noEmit` or a successful Next.js build.
 - `node --experimental-strip-types --test tests/security-static.test.cjs`: six tests passed (HMAC correctness/tampering, raw webhook signature, test/live key gate, three static guard checks). Static SQL checks do not prove runtime DB authorization.
-- Chromium limited demo component harness: 24/24 page/viewport checks (home, contact, demo booking, demo login, demo staff appointments, demo admin at 1440x1000, 768x1024, 390x844, 320x700). WhatsApp icon visible and safe fallback `/contact` verified on public pages. Harness is not Next.js and does not exercise the new React hook-based live screens. `docs/QA-phase-two-results.txt` contains run output. Phase 1's prior separate QA is historical only.
+- Chromium limited demo component harness: 24/24 page/viewport checks (home, contact, demo booking, demo login, demo staff appointments, demo admin at 1440x1000, 768x1024, 390x844, 320x700). WhatsApp icon visible and safe fallback `/contact` verified on public pages. Harness is not Next.js and does not exercise the new React hook-based live screens. `docs/QA-integration-results.txt` contains run output. The earlier UI-preview QA (`docs/QA.md`) is historical only.
 - Package install unavailable: npm registry DNS error EAI_AGAIN. No live Next.js build/typecheck, Postgres migration execution, live UI integration, provider sandbox execution or Safari/Firefox run was possible here. Do not deploy as production-ready based on these results.
 
 ## Required staging acceptance before real patient/payment use

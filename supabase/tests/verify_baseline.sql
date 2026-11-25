@@ -8,5 +8,5 @@ DO $$ DECLARE t record; BEGIN
  IF EXISTS(SELECT 1 FROM hms.role_permissions WHERE role_key='super_admin' AND permission_key LIKE 'clinical.%') THEN RAISE EXCEPTION 'Admin unexpectedly has clinical permissions'; END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_indexes WHERE schemaname='hms' AND indexname='one_live_appointment_per_slot') THEN RAISE EXCEPTION 'Missing slot uniqueness'; END IF;
  IF NOT EXISTS(SELECT 1 FROM storage.buckets WHERE id='hms-private-documents' AND NOT public) THEN RAISE EXCEPTION 'Private document bucket missing'; END IF;
- RAISE NOTICE 'Phase 1 baseline checks passed. This does not certify live security.';
+ RAISE NOTICE 'Baseline checks passed. This does not certify live security.';
 END $$;

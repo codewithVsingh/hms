@@ -10,4 +10,4 @@ DO $$ BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='hms' AND c.relname='patient_history' AND c.relrowsecurity) THEN RAISE EXCEPTION 'Missing history RLS'; END IF;
  IF EXISTS(SELECT 1 FROM storage.buckets WHERE id='hms-private-documents' AND public) THEN RAISE EXCEPTION 'Public medical bucket'; END IF;
 END $$;
-SELECT 'Phase 3 static database assertions passed; execute live test matrix next' AS result;
+SELECT 'Clinical, notification and document static database assertions passed; execute live test matrix next' AS result;

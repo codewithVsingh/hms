@@ -82,8 +82,8 @@ ok 8 - PWA network failure returns safe generic fallback, not a stored record
   duration_ms: 17.772022
   type: 'test'
   ...
-# Subtest: phase 3 service-only document creation, notification and reconciliation
-ok 9 - phase 3 service-only document creation, notification and reconciliation
+# Subtest: service-only document creation, notification and reconciliation
+ok 9 - service-only document creation, notification and reconciliation
   ---
   duration_ms: 0.416677
   type: 'test'

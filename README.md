@@ -20,7 +20,7 @@ Website: `http://localhost:3000`. Portal: `http://localhost:3001/login`. Demo mo
 
 ## Database
 
-All SQL is included under `supabase/`. Fresh project: apply migrations 001-018 in filename order. Existing Phase 3 DB: only 017-018; Phase 2 DB: only 011-018, if originals unchanged. Run `supabase/tests/verify_baseline.sql`, `verify_live.sql`, `verify_phase3.sql`, and `verify_cancellation_history.sql`. Configure initial data with `supabase/setup/01_provision_hospital.sql`. Keep private schema grants restricted. Do not apply optional seed to real hospital. Read `supabase/README.md`.
+All SQL is included under `supabase/`. Fresh project: apply migrations 001-018 in filename order. A database already at migration 016: only 017-018; at migration 010: only 011-018 (if originals unchanged). Run `supabase/tests/verify_baseline.sql`, `verify_live.sql`, `verify_clinical_notifications.sql`, and `verify_cancellation_history.sql`. Configure initial data with `supabase/setup/01_provision_hospital.sql`. Keep private schema grants restricted. Do not apply optional seed to real hospital. Read `supabase/README.md`.
 
 ## Structure
 
@@ -55,4 +55,4 @@ pnpm exec playwright install chromium
 pnpm test
 ```
 
-Releases, deployment lanes (website vs portal vs database), environments and service boundaries: `docs/RELEASE-AND-SERVICES.md`. Read `docs/CURRENT-HANDOVER.md` first for the latest additions (bilingual EN/Hindi UI, patient history, booking cancellation and refunds), its limitations and the staging checklist. `docs/PHASE3-HANDOVER.md` still covers the Phase 3 baseline: environment setup, API groups and earlier implemented/deferred items. Phase 2 documents are historical. Never connect real clinical records or live payments until verification is complete.
+Releases, deployment lanes (website vs portal vs database), environments and service boundaries: `docs/RELEASE-AND-SERVICES.md`. Read `docs/CURRENT-HANDOVER.md` first for the latest additions (bilingual EN/Hindi UI, patient history, booking cancellation and refunds), its limitations and the staging checklist. `docs/OPD-EXPANSION-HANDOVER.md` still covers the earlier baseline: environment setup, API groups and earlier implemented/deferred items. Earlier integration documents are historical. Never connect real clinical records or live payments until verification is complete.

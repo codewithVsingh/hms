@@ -146,7 +146,7 @@ test('service worker only handles login and workspace navigations', async () => 
   ])
     assert.equal(handled(path), false, path);
 });
-test('phase 3 service-only document creation, notification and reconciliation', () => {
+test('service-only document creation, notification and reconciliation', () => {
   assert.match(
     sql('202611240014_team_and_documents.sql'),
     /GRANT EXECUTE ON FUNCTION public\.hms_v3_link_invite[^;]+ TO service_role/,

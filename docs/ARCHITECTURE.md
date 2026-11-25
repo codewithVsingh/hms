@@ -1,4 +1,4 @@
-> Historical Phase 1 document. For the current live implementation and limitations, use README.md, docs/LIVE-INTEGRATION.md, docs/API.md and docs/QA-PHASE2.md.
+> Historical document (initial UI preview). For the current live implementation and limitations, use README.md, docs/LIVE-INTEGRATION.md, docs/API.md and docs/QA-ACCEPTANCE-MATRIX.md.
 
 # Architecture and design handoff
 
@@ -16,7 +16,7 @@ Supabase Postgres / Auth / private Storage
          + future durable notification jobs (Supabase / Railway)
 ```
 
-Two independent web apps; one workspace and design system. The website has no clinical data or tracking script, and booking uses the portal origin. Mock data is deliberately bundled in the demo; no real record must ever be bundled into a client app. Server-only packages are placeholders until Phase 2. No API routes pretend to complete live operations.
+Two independent web apps; one workspace and design system. The website has no clinical data or tracking script, and booking uses the portal origin. Mock data is deliberately bundled in the demo; no real record must ever be bundled into a client app. Server-only packages are placeholders until live integration. No API routes pretend to complete live operations.
 
 ## Design decisions
 

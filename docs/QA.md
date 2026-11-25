@@ -1,6 +1,6 @@
-> Historical Phase 1 document. For the current live implementation and limitations, use README.md, docs/LIVE-INTEGRATION.md, docs/API.md and docs/QA-PHASE2.md.
+> Historical document (initial UI preview). For the current live implementation and limitations, use README.md, docs/LIVE-INTEGRATION.md, docs/API.md and docs/QA-ACCEPTANCE-MATRIX.md.
 
-# QA verification — Phase 1
+# QA verification — initial UI preview
 
 ## Executed in the authoring environment
 

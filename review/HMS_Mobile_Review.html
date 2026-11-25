@@ -3263,7 +3263,7 @@ class Workspace extends React.Component {
                         React.createElement(ui_1.Icon, { name: "close", size: 17 }))),
                 React.createElement("div", { className: "page-content" }, pages[section]?.()),
                 React.createElement("footer", { className: "work-footer" },
-                    "Aarogya HMS \u00B7 Phase 1 UI preview ",
+                    "Aarogya HMS \u00B7 UI preview ",
                     React.createElement("span", null, "Privacy-first architecture \u00B7 Demo data")))),
         this.modal()); }
 }
@@ -3302,7 +3302,7 @@ exports.initialAppointments = [
 exports.initialPatients = exports.initialAppointments.map((a, i) => ({ id: `MRN-${String(101 + i).padStart(5, '0')}`, name: a.patient, age: [34, 42, 27, 56, 8, 31, 63, 45][i], gender: i % 2 ? 'Female' : 'Male', lastVisit: i < 3 ? 'Today' : 'No recent visit', doctor: a.doctor }));
 exports.demoUsers = [{ name: 'Dr. Ananya Sharma', initials: 'AS', role: 'Doctor', status: 'Active' }, { name: 'Dr. Arjun Mehta', initials: 'AM', role: 'Doctor', status: 'Active' }, { name: 'Dr. Meera Rao', initials: 'MR', role: 'Doctor', status: 'Active' }, { name: 'Demo Receptionist', initials: 'DR', role: 'Receptionist', status: 'Active' }, { name: 'Demo Billing Staff', initials: 'DB', role: 'Billing staff', status: 'Active' }, { name: 'Demo Administrator', initials: 'DA', role: 'Super admin', status: 'Active' }];
 exports.permissionRows = [['View appointments', true, true, true], ['Manage appointment queue', true, true, false], ['Register patients', false, true, false], ['View assigned clinical notes', true, false, false], ['Write prescriptions', true, false, false], ['Collect demo payments', false, true, true], ['Manage users and roles', false, false, true], ['Manage website content', false, false, true], ['View audit events', false, false, true]];
-// Additional Phase 3 routes in the preview navigation.
+// Additional routes in the preview navigation.
 exports.roleNav.doctor.push({ group: 'Clinical operations', items: [{ id: 'care', label: 'Clinical records & prescriptions', icon: 'stethoscope' }, { id: 'opd', label: 'OPD tokens', icon: 'pulse' }, { id: 'leave', label: 'Leave & availability', icon: 'clock' }] });
 exports.roleNav.staff.push({ group: 'Additional operations', items: [{ id: 'opd', label: 'OPD tokens', icon: 'pulse' }, { id: 'patient-edit', label: 'Patient corrections', icon: 'users' }, { id: 'inquiries', label: 'Inquiries & callbacks', icon: 'phone' }, { id: 'analytics', label: 'Reports', icon: 'chart' }] });
 exports.roleNav.admin.push({ group: 'Additional operations', items: [{ id: 'team-management', label: 'Team management', icon: 'users' }, { id: 'leave', label: 'Doctor leave', icon: 'clock' }, { id: 'analytics', label: 'Reports & analytics', icon: 'chart' }, { id: 'communications', label: 'Notification jobs', icon: 'mail' }, { id: 'inquiries', label: 'Inquiries & callbacks', icon: 'phone' }, { id: 'opd', label: 'OPD tokens', icon: 'pulse' }] });

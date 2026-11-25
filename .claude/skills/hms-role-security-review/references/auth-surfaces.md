@@ -41,4 +41,4 @@ Derived from the repo at clone time (2026-11-25, commit `abd58ff`). Re-check pat
 10. Seed data (`supabase/seed.sql`) is synthetic and must not be applied to a real hospital database.
 
 ## Where to look for existing evidence
-`docs/API.md` (endpoint map), `docs/LIVE-INTEGRATION.md` (env, auth model, payments), `docs/PHASE3-HANDOVER.md`, `docs/CURRENT-HANDOVER.md`, `supabase/README.md`, `supabase/tests/verify_*.sql`, `tests/security-static.test.cjs`, `docs/QA-PHASE2.md`.
+`docs/API.md` (endpoint map), `docs/LIVE-INTEGRATION.md` (env, auth model, payments), `docs/OPD-EXPANSION-HANDOVER.md`, `docs/CURRENT-HANDOVER.md`, `supabase/README.md`, `supabase/tests/verify_*.sql`, `tests/security-static.test.cjs`, `docs/QA-ACCEPTANCE-MATRIX.md`.
