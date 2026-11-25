@@ -1,6 +1,6 @@
 # HMS: agent instructions
 
-Stack: pnpm + Turborepo monorepo, Next.js 16 / React 19 (`apps/website`, `apps/portal`), Supabase (`supabase/`), Playwright tests (`tests/`). Healthcare context: never connect real clinical records or live payments before verification is complete (see `docs/PHASE4-HANDOVER.md`).
+Stack: pnpm + Turborepo monorepo, Next.js 16 / React 19 (`apps/website`, `apps/portal`), Supabase (`supabase/`), Playwright tests (`tests/`). Healthcare context: never connect real clinical records or live payments before verification is complete (see `docs/CURRENT-HANDOVER.md`).
 
 ## Skills first
 

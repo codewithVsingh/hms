@@ -1,4 +1,4 @@
-# Supabase database package — Phase 4
+# Supabase database package
 
 Apply in a **new development Supabase project first**. Do not paste all scripts repeatedly into a production database. SQL is versioned and assumes the Supabase-provided auth/storage schemas and roles. The `hms` and `hms_private` schemas must stay unexposed and denied to browser roles. Public RPCs are intentionally narrow; do not grant broad table access or disable RLS to solve connectivity problems.
 
@@ -29,7 +29,7 @@ Apply in a **new development Supabase project first**. Do not paste all scripts 
 Actual filenames begin with `202611240001` through `202611240018`. For a fresh database apply all eighteen in order. Existing Phase 3 database: apply only 017–018. Existing Phase 2 database: 011–018; Phase 1: 006–018, provided previous migrations are unchanged. Use migration history and backups, not blind reapplication. Original 001–010 are preserved. New migrations have not been executed against PostgreSQL here.
 
 1. Apply migrations using Supabase CLI (recommended) or SQL Editor one file at a time.
-2. Run `tests/verify_baseline.sql`, then `tests/verify_live.sql`, then `tests/verify_phase3.sql` and `tests/verify_phase4.sql`. These check privileges and key schema safeguards, not full functional/security certification.
+2. Run `tests/verify_baseline.sql`, then `tests/verify_live.sql`, then `tests/verify_phase3.sql` and `tests/verify_cancellation_history.sql`. These check privileges and key schema safeguards, not full functional/security certification.
 3. Invite/create the actual administrator, doctor and receptionist in Supabase Auth. Configure staff password policy and TOTP MFA. Enable SMS phone auth and configure a supported provider plus Turnstile CAPTCHA. Configure signup and auth rate limits.
 4. Edit all placeholders and approved fee in `setup/01_provision_hospital.sql`; execute once. It provisions one organization/branch, one doctor, one administrator, and receptionist + billing roles. Use the same pattern for additional doctors/staff, and assign least privilege. Keep booking and online payment disabled initially.
 5. In the live portal, sign in with email/password and MFA. Set real doctor bio/registration in DB if needed, publish verified doctor, create schedules, generate slots. Add/approve/publish actual privacy/booking/refund and hospital pages. Connect payment test keys and webhook before enabling any checkout.

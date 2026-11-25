@@ -19,7 +19,7 @@ Manual-style exploratory layer on top of the automated suites (`pnpm test:securi
 - **Ports:** check `:3000`/`:3001` first. If the app is already running reuse it; otherwise start with `pnpm dev` (or `HMS_DEMO_MODE=true pnpm dev`) and stop what you started when done.
 
 ## Procedure
-1. **Scope & plan.** State flow(s), environment, mode (demo/live), roles/accounts (by label only) and what "working" means. Take expected behaviour from the docs (`docs/PHASE4-HANDOVER.md`, `docs/PHASE3-HANDOVER.md`, `docs/API.md`, `docs/LIVE-INTEGRATION.md`), not from guesswork.
+1. **Scope & plan.** State flow(s), environment, mode (demo/live), roles/accounts (by label only) and what "working" means. Take expected behaviour from the docs (`docs/CURRENT-HANDOVER.md`, `docs/PHASE3-HANDOVER.md`, `docs/API.md`, `docs/LIVE-INTEGRATION.md`), not from guesswork.
 2. **Pre-flight.** Confirm both apps respond (`GET /` on 3000, `GET /login` on 3001). Note git commit (`git rev-parse --short HEAD`) and whether the tree is clean. If browser automation is unavailable (e.g. Playwright MCP failed to connect), use the repo's Playwright (`pnpm exec playwright ...`) via a throwaway script kept **outside** the repo, or say so and stop rather than inferring results.
 3. **Walk each flow like a user.** Per step record: action, expected, actual, URL, console errors, failed network requests (own `/api/*` 4xx/5xx), screenshot at each decision point. Always cover: happy path, invalid input, back/refresh mid-flow, double-click/duplicate submit, empty/error/slow states, keyboard-only navigation, and viewports **1440×1000, 768×1024, 390×844, 320×700** (check no horizontal page overflow; tables may scroll in their own container).
 4. **HMS flows** (pick what is in scope):

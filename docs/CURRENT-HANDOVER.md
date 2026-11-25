@@ -1,6 +1,6 @@
-# Phase 4 — bilingual UI, patient history and cancellation
+# Bilingual UI, patient history and cancellation
 
-This is a consolidated development baseline. Existing 001–016 migrations are preserved. Apply 017 and 018 to an existing Phase 3 development DB; fresh DB: all 18. Run `supabase/tests/verify_phase4.sql` as database owner in staging. No migration was executed in this environment.
+This is a consolidated development baseline. Existing 001–016 migrations are preserved. Apply 017 and 018 to an existing Phase 3 development DB; fresh DB: all 18. Run `supabase/tests/verify_cancellation_history.sql` as database owner in staging. No migration was executed in this environment.
 
 ## Patient references and records
 - New generated patient numbers use `PT-` plus at least six decimal digits. New appointment references use `BK-` plus seven uppercase base-36 characters. Sequences and unique constraints avoid collisions, references are not secrets, existing references remain valid, rescheduling preserves the reference. UUIDs remain internal keys.

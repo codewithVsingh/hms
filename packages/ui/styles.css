@@ -454,7 +454,7 @@ svg {
     scroll-behavior: auto !important;
   }
 }
-/* Phase 4 bilingual controls. Keep clinical values in their recorded language. */
+/* Bilingual controls. Keep clinical values in their recorded language. */
 .language-switch {
   display: inline-flex;
   align-items: center;

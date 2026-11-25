@@ -1,4 +1,4 @@
-Phase 4 offline Chromium component review; no live database or payment calls.
+Offline Chromium component review; no live database or payment calls.
 ('website', 390, False, 'PASS')
 ('website', 390, True, 'PASS')
 ('website', 320, True, 'PASS')

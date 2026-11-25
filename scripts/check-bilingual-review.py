@@ -26,5 +26,5 @@ with sync_playwright() as p:
  for name,route in paths.items():
   for w,h,hi in [(390,844,False),(390,844,True),(320,700,True),(768,1024,False),(1440,1000,True)]:run(name,route,w,h,hi)
  b.close()
-text='Phase 4 offline Chromium component review; no live database or payment calls.\n'+'\n'.join(str(r) for r in results)+f'\n{sum(r[-1]=="PASS" for r in results)}/{len(results)} passed.\n'
-(root/'docs/QA-phase-four-results.txt').write_text(text);print(text[-1000:],flush=True)
+text='Offline Chromium component review; no live database or payment calls.\n'+'\n'.join(str(r) for r in results)+f'\n{sum(r[-1]=="PASS" for r in results)}/{len(results)} passed.\n'
+(root/'docs/QA-review-results.txt').write_text(text);print(text[-1000:],flush=True)
